@@ -22,10 +22,8 @@
     console.warn('Firestore persistence error:', err.code);
   });
 
-  // Default calendars for new users
-  const DEFAULT_CALENDARS = [
-    { id: 'default', label: 'Meu Calendário', emoji: '\uD83D\uDCC5' }
-  ];
+  // New users start with no calendars (just the + button)
+  const DEFAULT_CALENDARS = [];
 
   // Old hardcoded calendars (for migration)
   const LEGACY_CALENDARS = [
@@ -166,7 +164,7 @@
     var container = document.getElementById('calendarSwitcher');
     if (!container) return;
 
-    if (!currentUser || calendars.length === 0) {
+    if (!currentUser) {
       container.innerHTML = '';
       container.style.display = 'none';
       return;
@@ -179,28 +177,26 @@
       html += '<button class="cal-switch-btn' + active + '" data-cal="' + cal.id + '" title="Duplo clique para editar">' +
         cal.emoji + ' ' + cal.label + '</button>';
     });
-    html += '<button class="cal-switch-btn cal-add-btn" id="calAddBtn" title="Novo calendário">+</button>';
+    var addLabel = calendars.length === 0 ? '+ Novo Calendário' : '+';
+    html += '<button class="cal-switch-btn cal-add-btn" id="calAddBtn" title="Novo calendário">' + addLabel + '</button>';
     container.innerHTML = html;
 
-    // Click to switch
+    // Click to switch; click again on active to edit
     container.querySelectorAll('.cal-switch-btn:not(.cal-add-btn)').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var calId = this.getAttribute('data-cal');
-        if (calId === currentCalendar) return;
+        if (calId === currentCalendar) {
+          // Already active — open editor
+          var cal = calendars.find(function (c) { return c.id === calId; });
+          if (cal) showCalendarEditor(cal);
+          return;
+        }
         stopListening();
         setCalendar(calId);
         renderCalendarSwitcher();
         if (window.BACSync && window.BACSync._onCalendarSwitch) {
           window.BACSync._onCalendarSwitch();
         }
-      });
-
-      // Double-click to edit
-      btn.addEventListener('dblclick', function (e) {
-        e.preventDefault();
-        var calId = this.getAttribute('data-cal');
-        var cal = calendars.find(function (c) { return c.id === calId; });
-        if (cal) showCalendarEditor(cal);
       });
     });
 
@@ -213,24 +209,18 @@
   // --- Calendar Editor (inline prompt) ---
   function showCalendarEditor(cal) {
     var isNew = !cal;
-    var title = isNew ? 'Novo Calendário' : 'Editar Calendário';
-
-    var emoji = cal ? cal.emoji : '\uD83D\uDCC5';
-    var label = cal ? cal.label : '';
-
-    var newLabel = prompt(title + '\n\nNome:', label);
-    if (newLabel === null) return; // cancelled
-    newLabel = newLabel.trim();
-    if (!newLabel) {
-      alert('Nome não pode ser vazio.');
-      return;
-    }
-
-    var newEmoji = prompt('Emoji (cole um emoji):', emoji);
-    if (newEmoji === null) newEmoji = emoji;
-    newEmoji = newEmoji.trim() || emoji;
 
     if (isNew) {
+      // --- Create new ---
+      var newLabel = prompt('Novo Calendário\n\nNome:');
+      if (newLabel === null) return;
+      newLabel = newLabel.trim();
+      if (!newLabel) return;
+
+      var newEmoji = prompt('Emoji (cole um emoji):', '\uD83D\uDCC5');
+      if (newEmoji === null) newEmoji = '\uD83D\uDCC5';
+      newEmoji = newEmoji.trim() || '\uD83D\uDCC5';
+
       var newCal = { id: generateId(), label: newLabel, emoji: newEmoji };
       calendars.push(newCal);
       saveCalendarsToProfile().then(function () {
@@ -242,34 +232,50 @@
         }
       });
     } else {
-      cal.label = newLabel;
-      cal.emoji = newEmoji;
-      saveCalendarsToProfile().then(function () {
-        renderCalendarSwitcher();
-      });
+      // --- Edit existing: choose action ---
+      var canDelete = calendars.length > 1;
+      var options = 'O que deseja fazer com "' + cal.emoji + ' ' + cal.label + '"?\n\n';
+      options += '1 — Renomear\n';
+      options += '2 — Trocar emoji\n';
+      if (canDelete) options += '3 — Excluir\n';
+      options += '\nDigite o número:';
 
-      // Offer delete if more than 1 calendar
-      if (calendars.length > 1) {
-        var wantDelete = confirm('Deseja EXCLUIR o calendário "' + newLabel + '"?\n(Os dados serão perdidos)');
-        if (wantDelete) {
-          calendars = calendars.filter(function (c) { return c.id !== cal.id; });
-          // Delete Firestore data
-          if (currentUser) {
-            db.collection('users').doc(currentUser.uid)
-              .collection('calendars').doc(cal.id).delete();
-          }
-          // Switch to first remaining calendar
-          if (currentCalendar === cal.id) {
-            stopListening();
-            setCalendar(calendars[0].id);
-            if (window.BACSync && window.BACSync._onCalendarSwitch) {
-              window.BACSync._onCalendarSwitch();
-            }
-          }
-          saveCalendarsToProfile().then(function () {
-            renderCalendarSwitcher();
-          });
+      var choice = prompt(options);
+      if (choice === null) return;
+      choice = choice.trim();
+
+      if (choice === '1') {
+        var renamed = prompt('Novo nome:', cal.label);
+        if (renamed === null || !renamed.trim()) return;
+        cal.label = renamed.trim();
+        saveCalendarsToProfile().then(function () {
+          renderCalendarSwitcher();
+        });
+      } else if (choice === '2') {
+        var newEm = prompt('Novo emoji:', cal.emoji);
+        if (newEm === null || !newEm.trim()) return;
+        cal.emoji = newEm.trim();
+        saveCalendarsToProfile().then(function () {
+          renderCalendarSwitcher();
+        });
+      } else if (choice === '3' && canDelete) {
+        var sure = confirm('Excluir "' + cal.label + '"?\nOs dados desse calendário serão perdidos.');
+        if (!sure) return;
+        calendars = calendars.filter(function (c) { return c.id !== cal.id; });
+        if (currentUser) {
+          db.collection('users').doc(currentUser.uid)
+            .collection('calendars').doc(cal.id).delete();
         }
+        if (currentCalendar === cal.id) {
+          stopListening();
+          setCalendar(calendars[0].id);
+          if (window.BACSync && window.BACSync._onCalendarSwitch) {
+            window.BACSync._onCalendarSwitch();
+          }
+        }
+        saveCalendarsToProfile().then(function () {
+          renderCalendarSwitcher();
+        });
       }
     }
   }
@@ -393,24 +399,22 @@
                 currentCalendar = withData[0].id;
                 localStorage.setItem('bac_current_calendar', currentCalendar);
               } else {
-                calendars = DEFAULT_CALENDARS.slice();
-                currentCalendar = 'default';
-                localStorage.setItem('bac_current_calendar', currentCalendar);
+                calendars = [];
               }
             } else {
-              calendars = DEFAULT_CALENDARS.slice();
-              currentCalendar = 'default';
-              localStorage.setItem('bac_current_calendar', currentCalendar);
+              calendars = [];
             }
             return saveCalendarsToProfile();
           });
         }
       }).then(function () {
         // Ensure currentCalendar is valid
-        var valid = calendars.some(function (c) { return c.id === currentCalendar; });
-        if (!valid && calendars.length > 0) {
-          currentCalendar = calendars[0].id;
-          localStorage.setItem('bac_current_calendar', currentCalendar);
+        if (calendars.length > 0) {
+          var valid = calendars.some(function (c) { return c.id === currentCalendar; });
+          if (!valid) {
+            currentCalendar = calendars[0].id;
+            localStorage.setItem('bac_current_calendar', currentCalendar);
+          }
         }
 
         renderCalendarSwitcher();
