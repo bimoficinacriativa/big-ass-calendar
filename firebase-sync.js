@@ -1,6 +1,6 @@
 /* ============================================
    Firebase Sync Layer — Big Ass Calendar
-   Auth + Firestore + Calendar Switcher
+   Auth + Firestore + Configurable Calendars
    ============================================ */
 (function () {
   'use strict';
@@ -14,24 +14,28 @@
     appId: "1:307188542224:web:efaddb84d3ebbc864e5395"
   };
 
-  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  // Enable offline persistence
   db.enablePersistence({ synchronizeTabs: true }).catch(function (err) {
     console.warn('Firestore persistence error:', err.code);
   });
 
-  // Calendar profiles
-  const CALENDARS = [
+  // Default calendars for new users
+  const DEFAULT_CALENDARS = [
+    { id: 'default', label: 'Meu Calendário', emoji: '\uD83D\uDCC5' }
+  ];
+
+  // Old hardcoded calendars (for migration)
+  const LEGACY_CALENDARS = [
     { id: 'oc', label: 'OC', emoji: '\uD83E\uDDE1' },
     { id: 'marcos', label: 'Marcos', emoji: '\uD83E\uDDD9\u200D\u2642\uFE0F' },
     { id: 'jessica', label: 'Jessica', emoji: '\uD83E\uDDD9\u200D\u2640\uFE0F' }
   ];
 
-  let currentCalendar = localStorage.getItem('bac_current_calendar') || 'oc';
+  let calendars = [];
+  let currentCalendar = localStorage.getItem('bac_current_calendar') || 'default';
   let unsubscribeSnapshot = null;
   let currentUser = null;
   let onStateChangeCallback = null;
@@ -39,10 +43,9 @@
 
   // --- Auth ---
   function signIn() {
-    const provider = new firebase.auth.GoogleAuthProvider();
+    var provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     return auth.signInWithPopup(provider).catch(function (err) {
-      // Fallback to redirect for mobile
       if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
         return auth.signInWithRedirect(provider);
       }
@@ -54,8 +57,30 @@
     return auth.signOut();
   }
 
+  // --- Profile (calendar list) ---
+  function getProfileRef() {
+    if (!currentUser) return null;
+    return db.collection('users').doc(currentUser.uid);
+  }
+
+  function saveCalendarsToProfile() {
+    var ref = getProfileRef();
+    if (!ref) return Promise.resolve();
+    return ref.set({ calendars: calendars }, { merge: true });
+  }
+
+  function loadCalendarsFromProfile() {
+    var ref = getProfileRef();
+    if (!ref) return Promise.resolve(null);
+    return ref.get().then(function (doc) {
+      if (doc.exists && doc.data().calendars) {
+        return doc.data().calendars;
+      }
+      return null;
+    });
+  }
+
   // --- Firestore ---
-  // Each user gets their own data: users/{uid}/calendars/{calId}
   function getDocRef() {
     if (!currentUser) return null;
     return db.collection('users').doc(currentUser.uid)
@@ -85,7 +110,7 @@
     if (unsubscribeSnapshot) unsubscribeSnapshot();
     if (!currentUser) return;
     unsubscribeSnapshot = getDocRef().onSnapshot(function (doc) {
-      if (savingInProgress) return; // ignore our own writes
+      if (savingInProgress) return;
       if (doc.exists && doc.metadata.hasPendingWrites === false) {
         callback(doc.data());
       }
@@ -105,13 +130,17 @@
     localStorage.setItem('bac_current_calendar', calId);
   }
 
+  function generateId() {
+    return 'cal_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+  }
+
   // --- Auth UI ---
   function renderAuthUI() {
-    const container = document.getElementById('authContainer');
+    var container = document.getElementById('authContainer');
     if (!container) return;
 
     if (currentUser) {
-      const photo = currentUser.photoURL
+      var photo = currentUser.photoURL
         ? '<img class="auth-avatar" src="' + currentUser.photoURL + '" alt="" referrerpolicy="no-referrer">'
         : '';
       container.innerHTML =
@@ -134,10 +163,10 @@
   }
 
   function renderCalendarSwitcher() {
-    const container = document.getElementById('calendarSwitcher');
+    var container = document.getElementById('calendarSwitcher');
     if (!container) return;
 
-    if (!currentUser) {
+    if (!currentUser || calendars.length === 0) {
       container.innerHTML = '';
       container.style.display = 'none';
       return;
@@ -145,44 +174,166 @@
 
     container.style.display = '';
     var html = '';
-    CALENDARS.forEach(function (cal) {
+    calendars.forEach(function (cal) {
       var active = cal.id === currentCalendar ? ' active' : '';
-      html += '<button class="cal-switch-btn' + active + '" data-cal="' + cal.id + '">' +
+      html += '<button class="cal-switch-btn' + active + '" data-cal="' + cal.id + '" title="Duplo clique para editar">' +
         cal.emoji + ' ' + cal.label + '</button>';
     });
+    html += '<button class="cal-switch-btn cal-add-btn" id="calAddBtn" title="Novo calendário">+</button>';
     container.innerHTML = html;
 
-    container.querySelectorAll('.cal-switch-btn').forEach(function (btn) {
+    // Click to switch
+    container.querySelectorAll('.cal-switch-btn:not(.cal-add-btn)').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var calId = this.getAttribute('data-cal');
         if (calId === currentCalendar) return;
         stopListening();
         setCalendar(calId);
         renderCalendarSwitcher();
-        // Notify app to reload state
         if (window.BACSync && window.BACSync._onCalendarSwitch) {
           window.BACSync._onCalendarSwitch();
         }
       });
+
+      // Double-click to edit
+      btn.addEventListener('dblclick', function (e) {
+        e.preventDefault();
+        var calId = this.getAttribute('data-cal');
+        var cal = calendars.find(function (c) { return c.id === calId; });
+        if (cal) showCalendarEditor(cal);
+      });
     });
+
+    // Add button
+    document.getElementById('calAddBtn').addEventListener('click', function () {
+      showCalendarEditor(null);
+    });
+  }
+
+  // --- Calendar Editor (inline prompt) ---
+  function showCalendarEditor(cal) {
+    var isNew = !cal;
+    var title = isNew ? 'Novo Calendário' : 'Editar Calendário';
+
+    var emoji = cal ? cal.emoji : '\uD83D\uDCC5';
+    var label = cal ? cal.label : '';
+
+    var newLabel = prompt(title + '\n\nNome:', label);
+    if (newLabel === null) return; // cancelled
+    newLabel = newLabel.trim();
+    if (!newLabel) {
+      alert('Nome não pode ser vazio.');
+      return;
+    }
+
+    var newEmoji = prompt('Emoji (cole um emoji):', emoji);
+    if (newEmoji === null) newEmoji = emoji;
+    newEmoji = newEmoji.trim() || emoji;
+
+    if (isNew) {
+      var newCal = { id: generateId(), label: newLabel, emoji: newEmoji };
+      calendars.push(newCal);
+      saveCalendarsToProfile().then(function () {
+        stopListening();
+        setCalendar(newCal.id);
+        renderCalendarSwitcher();
+        if (window.BACSync && window.BACSync._onCalendarSwitch) {
+          window.BACSync._onCalendarSwitch();
+        }
+      });
+    } else {
+      cal.label = newLabel;
+      cal.emoji = newEmoji;
+      saveCalendarsToProfile().then(function () {
+        renderCalendarSwitcher();
+      });
+
+      // Offer delete if more than 1 calendar
+      if (calendars.length > 1) {
+        var wantDelete = confirm('Deseja EXCLUIR o calendário "' + newLabel + '"?\n(Os dados serão perdidos)');
+        if (wantDelete) {
+          calendars = calendars.filter(function (c) { return c.id !== cal.id; });
+          // Delete Firestore data
+          if (currentUser) {
+            db.collection('users').doc(currentUser.uid)
+              .collection('calendars').doc(cal.id).delete();
+          }
+          // Switch to first remaining calendar
+          if (currentCalendar === cal.id) {
+            stopListening();
+            setCalendar(calendars[0].id);
+            if (window.BACSync && window.BACSync._onCalendarSwitch) {
+              window.BACSync._onCalendarSwitch();
+            }
+          }
+          saveCalendarsToProfile().then(function () {
+            renderCalendarSwitcher();
+          });
+        }
+      }
+    }
+  }
+
+  // --- Migration ---
+  function migrateFromShared() {
+    if (!currentUser) return Promise.resolve();
+    var migrationKey = 'bac_migrated_' + currentUser.uid;
+    if (localStorage.getItem(migrationKey)) return Promise.resolve();
+
+    var promises = LEGACY_CALENDARS.map(function (cal) {
+      var oldRef = db.collection('calendars').doc(cal.id);
+      var newRef = db.collection('users').doc(currentUser.uid)
+        .collection('calendars').doc(cal.id);
+
+      return newRef.get().then(function (newDoc) {
+        if (newDoc.exists) return;
+        return oldRef.get().then(function (oldDoc) {
+          if (oldDoc.exists) {
+            return newRef.set(oldDoc.data());
+          }
+        });
+      });
+    });
+
+    return Promise.all(promises).then(function () {
+      localStorage.setItem(migrationKey, '1');
+    }).catch(function (err) {
+      console.warn('Migration error:', err);
+    });
+  }
+
+  function migrateLocalData() {
+    var oldKey = 'bigasscalendar_2026';
+    var newKey = 'bigasscalendar_2026_oc';
+    var oldData = localStorage.getItem(oldKey);
+    var newData = localStorage.getItem(newKey);
+    if (oldData && !newData) {
+      localStorage.setItem(newKey, oldData);
+      if (currentUser) {
+        try {
+          var parsed = JSON.parse(oldData);
+          var prevCal = currentCalendar;
+          currentCalendar = 'oc';
+          saveToFirestore(parsed);
+          currentCalendar = prevCal;
+        } catch (e) { /* ignore */ }
+      }
+    }
   }
 
   // --- Public API ---
   window.BACSync = {
-    CALENDARS: CALENDARS,
+    get CALENDARS() { return calendars; },
     currentCalendar: function () { return currentCalendar; },
     isLoggedIn: function () { return !!currentUser; },
     user: function () { return currentUser; },
 
     save: function (state) {
-      // Always save to localStorage as cache
       localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(state));
-      // Sync to Firestore
       saveToFirestore(state);
     },
 
     load: function () {
-      // Load from localStorage first (fast)
       var key = 'bigasscalendar_2026_' + currentCalendar;
       try {
         var raw = localStorage.getItem(key);
@@ -198,7 +349,6 @@
     listen: function (callback) {
       onStateChangeCallback = callback;
       listenToFirestore(function (data) {
-        // Update localStorage cache
         localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(data));
         callback(data);
       });
@@ -209,89 +359,75 @@
       renderCalendarSwitcher();
     },
 
-    // Called by app.js to register calendar switch handler
-    _onCalendarSwitch: null,
-
-    // Migrate existing localStorage data to 'oc' calendar
-    migrateLocalData: function () {
-      var oldKey = 'bigasscalendar_2026';
-      var newKey = 'bigasscalendar_2026_oc';
-      var oldData = localStorage.getItem(oldKey);
-      var newData = localStorage.getItem(newKey);
-      if (oldData && !newData) {
-        localStorage.setItem(newKey, oldData);
-        if (currentUser) {
-          try {
-            var parsed = JSON.parse(oldData);
-            var prevCal = currentCalendar;
-            currentCalendar = 'oc';
-            saveToFirestore(parsed);
-            currentCalendar = prevCal;
-          } catch (e) { /* ignore */ }
-        }
-      }
-    },
-
-    // Migrate data from old shared collection (calendars/{calId})
-    // to per-user collection (users/{uid}/calendars/{calId})
-    migrateFromShared: function () {
-      if (!currentUser) return Promise.resolve();
-      var migrationKey = 'bac_migrated_' + currentUser.uid;
-      if (localStorage.getItem(migrationKey)) return Promise.resolve();
-
-      var promises = CALENDARS.map(function (cal) {
-        var oldRef = db.collection('calendars').doc(cal.id);
-        var newRef = db.collection('users').doc(currentUser.uid)
-          .collection('calendars').doc(cal.id);
-
-        return newRef.get().then(function (newDoc) {
-          if (newDoc.exists) return; // already has data, skip
-          return oldRef.get().then(function (oldDoc) {
-            if (oldDoc.exists) {
-              return newRef.set(oldDoc.data());
-            }
-          });
-        });
-      });
-
-      return Promise.all(promises).then(function () {
-        localStorage.setItem(migrationKey, '1');
-      }).catch(function (err) {
-        console.warn('Migration error:', err);
-      });
-    }
+    _onCalendarSwitch: null
   };
 
   // --- Auth State Listener ---
   auth.onAuthStateChanged(function (user) {
     currentUser = user;
     renderAuthUI();
-    renderCalendarSwitcher();
 
     if (user) {
-      // Migrate old localStorage data
-      window.BACSync.migrateLocalData();
+      migrateLocalData();
 
-      // Migrate from old shared collection to per-user collection
-      window.BACSync.migrateFromShared().then(function () {
+      // Load user's calendar profiles, then migrate, then load data
+      loadCalendarsFromProfile().then(function (savedCalendars) {
+        if (savedCalendars && savedCalendars.length > 0) {
+          calendars = savedCalendars;
+        } else {
+          // First-time user: check if they have legacy data
+          return migrateFromShared().then(function () {
+            // Check if legacy calendars have data
+            var checks = LEGACY_CALENDARS.map(function (cal) {
+              return db.collection('users').doc(currentUser.uid)
+                .collection('calendars').doc(cal.id).get()
+                .then(function (doc) { return doc.exists ? cal : null; });
+            });
+            return Promise.all(checks);
+          }).then(function (results) {
+            if (results) {
+              var withData = results.filter(function (c) { return c !== null; });
+              if (withData.length > 0) {
+                // Use legacy calendars that have data
+                calendars = withData;
+                currentCalendar = withData[0].id;
+                localStorage.setItem('bac_current_calendar', currentCalendar);
+              } else {
+                calendars = DEFAULT_CALENDARS.slice();
+                currentCalendar = 'default';
+                localStorage.setItem('bac_current_calendar', currentCalendar);
+              }
+            } else {
+              calendars = DEFAULT_CALENDARS.slice();
+              currentCalendar = 'default';
+              localStorage.setItem('bac_current_calendar', currentCalendar);
+            }
+            return saveCalendarsToProfile();
+          });
+        }
+      }).then(function () {
+        // Ensure currentCalendar is valid
+        var valid = calendars.some(function (c) { return c.id === currentCalendar; });
+        if (!valid && calendars.length > 0) {
+          currentCalendar = calendars[0].id;
+          localStorage.setItem('bac_current_calendar', currentCalendar);
+        }
 
-      // Load from Firestore and merge with local
-      return loadFromFirestore();
+        renderCalendarSwitcher();
+
+        // Load calendar data
+        return loadFromFirestore();
       }).then(function (cloudData) {
         if (cloudData) {
-          // Update local cache
           localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(cloudData));
-          // Notify app
           if (onStateChangeCallback) onStateChangeCallback(cloudData);
         } else {
-          // First time: push local data to cloud
           var localRaw = localStorage.getItem('bigasscalendar_2026_' + currentCalendar);
           if (localRaw) {
             try { saveToFirestore(JSON.parse(localRaw)); } catch (e) { /* ignore */ }
           }
         }
 
-        // Start real-time listener
         if (onStateChangeCallback) {
           listenToFirestore(function (data) {
             localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(data));
@@ -300,7 +436,9 @@
         }
       });
     } else {
+      calendars = [];
       stopListening();
+      renderCalendarSwitcher();
     }
   });
 

@@ -522,6 +522,17 @@ body {
   border-color: var(--accent, #0094D6);
 }
 
+.cal-add-btn {
+  font-size: 1rem;
+  padding: 4px 10px;
+  opacity: 0.5;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.cal-add-btn:hover {
+  opacity: 1;
+}
+
 /* ============================================
    TOOLBAR
    ============================================ */
