@@ -1321,22 +1321,12 @@ body {
 }
 
 .day-left {
-  padding: 20px 20px 20px 24px;
+  padding: 16px;
   overflow-y: auto;
   border-right: 2px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 31px,
-      var(--border) 31px,
-      var(--border) 32px
-    );
-  background-position: 0 0;
-  background-size: 100% 32px;
+  gap: 12px;
 }
 
 .day-right {
@@ -1346,22 +1336,23 @@ body {
 }
 
 .day-section {
-  background: transparent;
+  background: var(--cell-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-/* --- Section Titles: thick left accent --- */
 .day-section-title {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 2.5px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--title);
   margin-bottom: 12px;
-  padding: 0 0 0 12px;
-  border-bottom: none;
-  border-left: 4px solid var(--title);
-  line-height: 1;
-  opacity: 0.7;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  transition: color 0.3s, border-color 0.3s;
 }
 
 /* --- Priorities: scoreboard numbers --- */
@@ -1385,34 +1376,25 @@ body {
 
 .day-priority-num {
   font-weight: 900;
-  font-size: clamp(28px, 2.5vw, 40px);
+  font-size: 16px;
   color: var(--title);
-  width: 36px;
-  text-align: right;
+  width: 24px;
+  text-align: center;
   flex-shrink: 0;
-  line-height: 1;
-  opacity: 0.2;
-  transition: opacity 0.2s;
-}
-
-/* Light up number when input has content */
-.day-priority-item:has(.day-priority-input:not(:placeholder-shown)) .day-priority-num,
-.day-priority-item:focus-within .day-priority-num {
-  opacity: 0.8;
 }
 
 .day-priority-input {
   flex: 1;
   border: none;
-  border-bottom: 2px solid transparent;
-  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 6px;
   font-family: inherit;
-  font-size: clamp(14px, 1.1vw, 17px);
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   background: transparent;
   color: var(--text);
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
 .day-priority-input:focus {
@@ -1422,39 +1404,33 @@ body {
 .day-priority-input::placeholder {
   color: var(--border);
   font-weight: 500;
-  opacity: 0.5;
-}
-
-/* --- Brain Dump: notebook feel --- */
-.day-braindump {
-  position: relative;
 }
 
 .day-braindump textarea {
   width: 100%;
-  border: none;
-  border-left: 3px solid var(--border);
-  border-radius: 0;
-  padding: 8px 12px;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
-  font-size: 12px;
-  font-weight: 400;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
   resize: vertical;
-  min-height: 100px;
+  min-height: 180px;
   color: var(--text);
-  background: transparent;
+  background: var(--header-bg);
   outline: none;
-  line-height: 32px;
-  transition: border-color 0.2s;
+  line-height: 1.6;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.3s;
 }
 
 .day-braindump textarea:focus {
-  border-left-color: var(--title);
+  border-color: var(--title);
+  box-shadow: 0 0 0 3px var(--modal-shadow);
 }
 
 .day-braindump textarea::placeholder {
   color: var(--border);
-  font-weight: 400;
+  font-weight: 500;
   font-style: italic;
 }
 
@@ -1812,11 +1788,9 @@ td.day-time-cell[data-cat="finance"]    .day-cat-dot { background: #00BCD4; }
     border-right: none;
     border-bottom: 2px solid var(--border);
     overflow: visible;
-    background: none;
-    padding: 16px;
   }
 
-  .day-priority-num { font-size: 24px; }
+  .day-priority-num { font-size: 16px; }
   .day-schedule-table td { height: 38px; }
 }
 
