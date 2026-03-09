@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bac-2026-v3';
+const CACHE_NAME = 'bac-2026-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -28,26 +28,29 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: cache-first for local assets, network-first for external (fonts)
+// Fetch: network-first for local assets, cache as fallback (offline)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Google Fonts: network-first with cache fallback
-  if (url.hostname.includes('googleapis.com') || url.hostname.includes('gstatic.com')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+
+  // Skip Firebase/external API calls
+  if (url.hostname.includes('firestore.googleapis.com') ||
+      url.hostname.includes('firebaseauth.googleapis.com') ||
+      url.hostname.includes('identitytoolkit.googleapis.com')) {
     return;
   }
 
-  // Local assets: cache-first
+  // Everything: network-first with cache fallback
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        // Cache the fresh response
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
