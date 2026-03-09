@@ -13,8 +13,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
+
+  <!-- AUTH BAR -->
+  <div class="auth-container" id="authContainer"></div>
+  <div class="calendar-switcher" id="calendarSwitcher" style="display:none"></div>
 
   <!-- TOOLBAR -->
   <header class="toolbar">
@@ -506,6 +515,7 @@
     <div class="tutorial-card" id="tutorialCard"></div>
   </div>
 
+  <script src="firebase-sync.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

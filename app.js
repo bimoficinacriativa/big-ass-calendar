@@ -6,7 +6,7 @@
 
   // --- Constants ---
   const YEAR = 2026;
-  const STORAGE_KEY = 'bigasscalendar_2026';
+  const STORAGE_KEY_LEGACY = 'bigasscalendar_2026';
   const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
   const CATEGORIES = [
@@ -296,13 +296,22 @@
 
   function loadState() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const s = Object.assign(defaultState(), parsed);
-        if (s.labels && s.labels.length > 0) {
-          s.labels = migrateLabels(s.labels);
+      // Try firebase sync first, then legacy key
+      var raw = null;
+      if (window.BACSync) {
+        raw = window.BACSync.load();
+        if (raw) {
+          const s = Object.assign(defaultState(), raw);
+          if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
+          return s;
         }
+      }
+      // Fallback to legacy localStorage
+      const legacyRaw = localStorage.getItem(STORAGE_KEY_LEGACY);
+      if (legacyRaw) {
+        const parsed = JSON.parse(legacyRaw);
+        const s = Object.assign(defaultState(), parsed);
+        if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
         return s;
       }
     } catch (e) { /* ignore */ }
@@ -310,7 +319,21 @@
   }
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (window.BACSync) {
+      window.BACSync.save(state);
+    } else {
+      localStorage.setItem(STORAGE_KEY_LEGACY, JSON.stringify(state));
+    }
+  }
+
+  function reloadFromState(newData) {
+    const s = Object.assign(defaultState(), newData);
+    if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
+    state = s;
+    renderGrid();
+    updateDashboard();
+    if (typeof renderMonthView === 'function') renderMonthView();
+    if (typeof renderWeekView === 'function') renderWeekView();
   }
 
   // --- Grid Rendering ---
@@ -4070,6 +4093,33 @@
     // Tutorial on first visit
     if (shouldShowTutorial()) {
       setTimeout(showTutorial, 500);
+    }
+
+    // Firebase sync
+    if (window.BACSync) {
+      window.BACSync.renderUI();
+
+      // Listen for real-time updates from other devices
+      window.BACSync.listen(function (cloudData) {
+        reloadFromState(cloudData);
+      });
+
+      // Handle calendar switching
+      window.BACSync._onCalendarSwitch = function () {
+        state = loadState();
+        renderGrid();
+        updateDashboard();
+        if (typeof renderMonthView === 'function') renderMonthView();
+        if (typeof renderWeekView === 'function') renderWeekView();
+        // Re-subscribe to new calendar
+        window.BACSync.listen(function (cloudData) {
+          reloadFromState(cloudData);
+        });
+        // Load cloud data for new calendar
+        window.BACSync.loadFromCloud().then(function (cloudData) {
+          if (cloudData) reloadFromState(cloudData);
+        });
+      };
     }
   }
 
