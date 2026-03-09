@@ -26,9 +26,9 @@
 
   // Calendar profiles
   const CALENDARS = [
-    { id: 'oc', label: 'OC', emoji: '\uD83C\uDFE2' },
-    { id: 'marcos', label: 'Marcos', emoji: '\uD83D\uDC64' },
-    { id: 'jessica', label: 'Jessica', emoji: '\uD83D\uDC64' }
+    { id: 'oc', label: 'OC', emoji: '\uD83E\uDDE1' },
+    { id: 'marcos', label: 'Marcos', emoji: '\uD83E\uDDD9\u200D\u2642\uFE0F' },
+    { id: 'jessica', label: 'Jessica', emoji: '\uD83E\uDDD9\u200D\u2640\uFE0F' }
   ];
 
   let currentCalendar = localStorage.getItem('bac_current_calendar') || 'oc';
