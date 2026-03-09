@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="blue">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1565C0">
+  <title>THE BIG A## CALENDAR 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <h1 class="title">THE BIG A## CALENDAR <span class="title-year">2026</span> <button class="info-btn" data-info="calendar" aria-label="Info"><span>i</span></button></h1>
+    </div>
+    <div class="toolbar-right">
+      <div class="theme-selector" role="group" aria-label="Tema">
+        <button class="theme-dot" data-theme="peach" style="background:#FCC0A0" title="Warm"></button>
+        <button class="theme-dot" data-theme="orange" style="background:#FF612E" title="Energy"></button>
+        <button class="theme-dot" data-theme="brown" style="background:#B65B3D" title="Earth"></button>
+        <button class="theme-dot" data-theme="lightblue" style="background:#7BBBD7" title="Light Blue"></button>
+        <button class="theme-dot active" data-theme="blue" style="background:#0094D6" title="Classic Blue"></button>
+        <button class="theme-dot" data-theme="teal" style="background:#225C75" title="Deep Ocean"></button>
+        <button class="theme-dot" data-theme="white" style="background:#FDFDFD;border:1px solid #ccc" title="Minimal"></button>
+        <button class="theme-dot" data-theme="silver" style="background:#EDEDED" title="Soft Gray"></button>
+        <button class="theme-dot" data-theme="gray" style="background:#ADADAD" title="Gray"></button>
+        <button class="theme-dot" data-theme="darkgray" style="background:#3B3B3B" title="Charcoal"></button>
+        <button class="theme-dot" data-theme="charcoal" style="background:#212121" title="Dark"></button>
+        <button class="theme-dot" data-theme="black" style="background:#000000" title="OLED Black"></button>
+      </div>
+      <span class="header-separator"></span>
+      <div class="filter-switcher" role="group" aria-label="Filtros de Categoria">
+        <button class="filter-btn" data-category="adventure" title="Filtrar: Aventura"><span class="filter-dot" style="background:#0094D6"></span></button>
+        <button class="filter-btn" data-category="marriage" title="Filtrar: Casamento"><span class="filter-dot" style="background:#EC407A"></span></button>
+        <button class="filter-btn" data-category="health" title="Filtrar: Saúde"><span class="filter-dot" style="background:#7CB342"></span></button>
+        <button class="filter-btn" data-category="kids" title="Filtrar: Filhos"><span class="filter-dot" style="background:#9791F1"></span></button>
+        <button class="filter-btn" data-category="business" title="Filtrar: Negócios"><span class="filter-dot" style="background:#FF612E"></span></button>
+        <button class="filter-btn" data-category="personal" title="Filtrar: Pessoal"><span class="filter-dot" style="background:#FDD835"></span></button>
+        <button class="filter-btn" data-category="family" title="Filtrar: Família"><span class="filter-dot" style="background:#E53935"></span></button>
+        <button class="filter-btn" data-category="finance" title="Filtrar: Finanças"><span class="filter-dot" style="background:#00BCD4"></span></button>
+        <button class="filter-clear-btn" id="filterClearBtn" title="Limpar filtros" style="display:none">&times;</button>
+      </div>
+      <button class="help-btn" id="btnHelp" title="Rever tutorial / Review tutorial">?</button>
+      <button class="toolbar-btn" id="btnLang" title="Idioma">PT</button>
+      <button class="toolbar-btn" id="btnPanel" title="Dashboard" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ZOOM BAR -->
+  <nav class="zoom-bar" aria-label="Zoom">
+    <div class="zoom-group">
+      <button class="zoom-btn active" data-zoom="year" data-i18n="zoomYear">ANO</button>
+      <button class="zoom-btn" data-zoom="q1">Q1</button>
+      <button class="zoom-btn" data-zoom="q2">Q2</button>
+      <button class="zoom-btn" data-zoom="q3">Q3</button>
+      <button class="zoom-btn" data-zoom="q4">Q4</button>
+      <button class="zoom-btn" data-zoom="month" data-i18n="zoomMonth">MÊS</button>
+      <button class="zoom-btn" data-zoom="week" data-i18n="zoomWeek">SEMANA</button>
+    </div>
+    <div class="zoom-nav" id="monthNav" style="display:none">
+      <button class="zoom-nav-btn" id="monthPrev" aria-label="Mês anterior">&#9664;</button>
+      <span class="zoom-nav-label" id="monthNavLabel">JAN</span>
+      <button class="zoom-nav-btn" id="monthNext" aria-label="Próximo mês">&#9654;</button>
+    </div>
+    <div class="zoom-nav" id="weekNav" style="display:none">
+      <button class="zoom-nav-btn" id="weekPrev" aria-label="Semana anterior">&#9664;</button>
+      <span class="zoom-nav-label" id="weekNavLabel">—</span>
+      <button class="zoom-nav-btn" id="weekNext" aria-label="Próxima semana">&#9654;</button>
+    </div>
+    <button class="zoom-btn bd-toggle-btn" id="bdToggle" style="display:none" title="Brain Dump">&#x1F4DD;</button>
+  </nav>
+
+  <!-- VIEWS CONTAINER -->
+  <main class="views-wrap">
+
+    <!-- YEAR VIEW (existing grid) -->
+    <section class="view-year" id="viewYear">
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </section>
+
+    <!-- MONTH VIEW -->
+    <section class="view-month" id="viewMonth" hidden>
+      <div class="month-header">
+        <button class="month-nav-arrow" id="mvPrev" aria-label="Mês anterior">&#9664;</button>
+        <h2 class="month-title" id="mvTitle">FEVEREIRO 2026</h2>
+        <button class="month-nav-arrow" id="mvNext" aria-label="Próximo mês">&#9654;</button>
+      </div>
+      <div class="month-grid" id="monthGrid"></div>
+      <aside class="brain-dump-sidebar" id="brainDumpMonth">
+        <!-- Header -->
+        <div class="bd-header" id="bdHeaderMonth">
+          <div class="bd-header-top">
+            <span class="bd-header-icon">&#x1F441;&#xFE0F;</span>
+            <span class="bd-header-title" id="bdHeaderTitleMonth" data-i18n="weekAtAGlance">VIS&Atilde;O DA SEMANA</span>
+            <button class="info-btn bd-info-btn" data-info="weekGlance" aria-label="Info"><span>i</span></button>
+          </div>
+          <div class="bd-header-sub" id="bdHeaderSubMonth"></div>
+          <div class="bd-header-quote" data-i18n="weekQuestion">O que merece minha energia esta semana?</div>
+        </div>
+        <!-- Don't Forget -->
+        <div class="bd-section" data-section="reminders">
+          <h4 class="bd-section-title bd-reminder-title bd-collapsible" data-collapse="reminders">
+            <span>&#x1F4CC;</span> <span data-i18n="bdReminders">N&Atilde;O ESQUE&Ccedil;A</span>
+            <button class="info-btn bd-info-btn" data-info="dontForget" aria-label="Info"><span>i</span></button>
+            <span class="bd-collapse-icon">&#x25BC;</span>
+          </h4>
+          <div class="bd-section-body" id="bdReminderBody">
+            <div class="bd-list" id="bdReminderList"></div>
+          </div>
+        </div>
+        <!-- Evening Script -->
+        <div class="bd-section" data-section="script">
+          <h4 class="bd-section-title bd-script-title bd-collapsible" data-collapse="script">
+            <span>&#x1F4CB;</span> <span data-i18n="eveningScript">ROTEIRO DA NOITE</span>
+            <button class="info-btn bd-info-btn" data-info="eveningScript" aria-label="Info"><span>i</span></button>
+            <span class="bd-collapse-icon">&#x25BC;</span>
+          </h4>
+          <div class="bd-section-body" id="esBodyMonth">
+            <div class="es-nav">
+              <span class="es-for" data-i18n="esFor">Para:</span>
+              <button class="es-nav-btn" id="esPrevMonth" aria-label="Dia anterior">&#9664;</button>
+              <span class="es-nav-label" id="esDateMonth"></span>
+              <button class="es-nav-btn" id="esNextMonth" aria-label="Pr&oacute;ximo dia">&#9654;</button>
+            </div>
+            <div class="es-list" id="esListMonth"></div>
+            <div class="es-add-row">
+              <input type="time" class="es-time-input" id="esTimeMonth" value="07:00">
+              <input type="text" class="es-text-input" id="esTextMonth" placeholder="Atividade..." maxlength="60">
+              <button class="es-add-btn" id="esAddMonth" aria-label="Adicionar">+</button>
+            </div>
+          </div>
+        </div>
+        <!-- Tasks -->
+        <div class="bd-section" data-section="tasks">
+          <h4 class="bd-section-title bd-todo-title bd-collapsible" data-collapse="tasks">
+            <span>&#x2611;&#xFE0F;</span> <span data-i18n="bdTodos">TAREFAS</span>
+            <span class="bd-collapse-icon">&#x25BC;</span>
+          </h4>
+          <div class="bd-section-body" id="bdTodoBody">
+            <div class="bd-list" id="bdTodoList"></div>
+          </div>
+        </div>
+        <!-- Input Area -->
+        <div class="bd-input-area">
+          <div class="bd-input-row">
+            <input type="time" class="es-time-input bd-script-time" id="bdScriptTime" value="07:00" style="display:none">
+            <input type="text" class="bd-input" id="bdInput" data-i18n="bdPlaceholder" placeholder="Escreva uma nota..." maxlength="80">
+          </div>
+          <div class="bd-input-btns">
+            <button class="bd-add-btn bd-add-reminder" id="bdAddReminder"><span>&#x1F4CC;</span> <span data-i18n="bdAddReminder">Lembrete</span></button>
+            <button class="bd-add-btn bd-add-script" id="bdAddScript"><span>&#x1F4CB;</span> <span data-i18n="bdAddScript">Roteiro</span></button>
+            <button class="bd-add-btn bd-add-todo" id="bdAddTodo"><span>&#x2611;&#xFE0F;</span> <span data-i18n="bdAddTodo">Tarefa</span></button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- WEEK VIEW -->
+    <section class="view-week" id="viewWeek" hidden>
+      <div class="week-header">
+        <button class="month-nav-arrow" id="wvPrev" aria-label="Semana anterior">&#9664;</button>
+        <h2 class="week-title" id="wvTitle">15/2 — 21/2</h2>
+        <span class="week-number" id="wvNumber">SEMANA 8/52</span>
+        <button class="month-nav-arrow" id="wvNext" aria-label="Próxima semana">&#9654;</button>
+      </div>
+      <div class="week-view-body">
+        <div class="week-grid" id="weekGrid"></div>
+        <aside class="brain-dump-sidebar" id="brainDumpWeek">
+          <!-- Header -->
+          <div class="bd-header" id="bdHeaderWeek">
+            <div class="bd-header-top">
+              <span class="bd-header-icon">&#x1F441;&#xFE0F;</span>
+              <span class="bd-header-title" id="bdHeaderTitleWeek" data-i18n="weekAtAGlance">VIS&Atilde;O DA SEMANA</span>
+              <button class="info-btn bd-info-btn" data-info="weekGlance" aria-label="Info"><span>i</span></button>
+            </div>
+            <div class="bd-header-sub" id="bdHeaderSubWeek"></div>
+            <div class="bd-header-quote" data-i18n="weekQuestion">O que merece minha energia esta semana?</div>
+          </div>
+          <!-- Don't Forget -->
+          <div class="bd-section" data-section="reminders">
+            <h4 class="bd-section-title bd-reminder-title bd-collapsible" data-collapse="reminders">
+              <span>&#x1F4CC;</span> <span data-i18n="bdReminders">N&Atilde;O ESQUE&Ccedil;A</span>
+              <button class="info-btn bd-info-btn" data-info="dontForget" aria-label="Info"><span>i</span></button>
+              <span class="bd-collapse-icon">&#x25BC;</span>
+            </h4>
+            <div class="bd-section-body" id="bdReminderBodyWeek">
+              <div class="bd-list" id="bdReminderListWeek"></div>
+            </div>
+          </div>
+          <!-- Evening Script -->
+          <div class="bd-section" data-section="script">
+            <h4 class="bd-section-title bd-script-title bd-collapsible" data-collapse="script">
+              <span>&#x1F4CB;</span> <span data-i18n="eveningScript">ROTEIRO DA NOITE</span>
+              <button class="info-btn bd-info-btn" data-info="eveningScript" aria-label="Info"><span>i</span></button>
+              <span class="bd-collapse-icon">&#x25BC;</span>
+            </h4>
+            <div class="bd-section-body" id="esBodyWeek">
+              <div class="es-nav">
+                <span class="es-for" data-i18n="esFor">Para:</span>
+                <button class="es-nav-btn" id="esPrevWeek" aria-label="Dia anterior">&#9664;</button>
+                <span class="es-nav-label" id="esDateWeek"></span>
+                <button class="es-nav-btn" id="esNextWeek" aria-label="Pr&oacute;ximo dia">&#9654;</button>
+              </div>
+              <div class="es-list" id="esListWeek"></div>
+              <div class="es-add-row">
+                <input type="time" class="es-time-input" id="esTimeWeek" value="07:00">
+                <input type="text" class="es-text-input" id="esTextWeek" placeholder="Atividade..." maxlength="60">
+                <button class="es-add-btn" id="esAddWeek" aria-label="Adicionar">+</button>
+              </div>
+            </div>
+          </div>
+          <!-- Tasks -->
+          <div class="bd-section" data-section="tasks">
+            <h4 class="bd-section-title bd-todo-title bd-collapsible" data-collapse="tasks">
+              <span>&#x2611;&#xFE0F;</span> <span data-i18n="bdTodos">TAREFAS</span>
+              <span class="bd-collapse-icon">&#x25BC;</span>
+            </h4>
+            <div class="bd-section-body" id="bdTodoBodyWeek">
+              <div class="bd-list" id="bdTodoListWeek"></div>
+            </div>
+          </div>
+          <!-- Input Area -->
+          <div class="bd-input-area">
+            <div class="bd-input-row">
+              <input type="time" class="es-time-input bd-script-time" id="bdScriptTimeWeek" value="07:00" style="display:none">
+              <input type="text" class="bd-input" id="bdInputWeek" data-i18n="bdPlaceholder" placeholder="Escreva uma nota..." maxlength="80">
+            </div>
+            <div class="bd-input-btns">
+              <button class="bd-add-btn bd-add-reminder" id="bdAddReminderWeek"><span>&#x1F4CC;</span> <span data-i18n="bdAddReminder">Lembrete</span></button>
+              <button class="bd-add-btn bd-add-script" id="bdAddScriptWeek"><span>&#x1F4CB;</span> <span data-i18n="bdAddScript">Roteiro</span></button>
+              <button class="bd-add-btn bd-add-todo" id="bdAddTodoWeek"><span>&#x2611;&#xFE0F;</span> <span data-i18n="bdAddTodo">Tarefa</span></button>
+            </div>
+          </div>
+        </aside>
+      </div>
+      <div class="week-view-alt" id="weekViewContent"></div>
+    </section>
+
+  </main>
+
+  <!-- SIDE PANEL (Dashboard) -->
+  <aside class="side-panel" id="sidePanel" aria-hidden="true">
+    <div class="panel-header">
+      <h2 class="panel-title" data-i18n="dashboard">Dashboard do Ano</h2>
+      <button class="panel-close" id="btnPanelClose" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- 8 Boxes Summary -->
+      <section class="panel-section">
+        <h3><span data-i18n="eightBoxes">As 8 Caixas</span> <button class="info-btn" data-info="eightBoxes" aria-label="Info"><span>i</span></button></h3>
+        <ul class="boxes-list" id="boxesList"></ul>
+      </section>
+
+      <!-- Misogi -->
+      <section class="panel-section">
+        <h3><span data-i18n="misogiTitle">Misogi do Ano</span> <button class="info-btn" data-info="misogi" aria-label="Info"><span>i</span></button></h3>
+        <div id="misogiDisplay" class="misogi-display">
+          <p class="empty-state" data-i18n="noMisogi">Nenhum Misogi definido</p>
+        </div>
+        <button class="btn-small" id="btnSetMisogi" data-i18n="defineMisogi">Definir Misogi</button>
+      </section>
+
+      <!-- Mini Adventures -->
+      <section class="panel-section">
+        <h3><span data-i18n="miniAdventures">Mini-Aventuras</span> <button class="info-btn" data-info="kevinsRule" aria-label="Info"><span>i</span></button></h3>
+        <div class="counter" id="adventureCounter">0/6</div>
+        <ul class="adventures-list" id="adventuresList"></ul>
+        <button class="btn-small" id="btnAddAdventure" data-i18n="addAdventure">+ Adicionar</button>
+      </section>
+
+      <!-- Quarterly Habits -->
+      <section class="panel-section">
+        <h3><span data-i18n="quarterlyHabits">Hábitos Trimestrais</span> <button class="info-btn" data-info="habits" aria-label="Info"><span>i</span></button></h3>
+        <div class="habits-grid">
+          <label>Q1 <input type="text" id="habitQ1" class="habit-input" placeholder="Jan-Mar"></label>
+          <label>Q2 <input type="text" id="habitQ2" class="habit-input" placeholder="Apr-Jun"></label>
+          <label>Q3 <input type="text" id="habitQ3" class="habit-input" placeholder="Jul-Sep"></label>
+          <label>Q4 <input type="text" id="habitQ4" class="habit-input" placeholder="Oct-Dec"></label>
+        </div>
+      </section>
+
+      <!-- Blender Score -->
+      <section class="panel-section">
+        <h3><span data-i18n="blenderScore">Blender Score</span> <button class="info-btn" data-info="blender" aria-label="Info"><span>i</span></button></h3>
+        <div class="blender-wrap">
+          <input type="range" id="blenderSlider" min="1" max="10" value="5" class="blender-slider">
+          <span class="blender-value" id="blenderValue">5</span>
+        </div>
+      </section>
+
+      <!-- Seasons -->
+      <section class="panel-section">
+        <h3><span data-i18n="seasons">Temporadas</span> <button class="info-btn" data-info="seasons" aria-label="Info"><span>i</span></button></h3>
+        <div class="seasons-info">
+          <span class="season-badge push" data-i18n="pushSeason">Push</span>
+          <span class="season-badge recovery" data-i18n="recoverySeason">Recovery</span>
+        </div>
+        <ul class="seasons-list" id="seasonsList"></ul>
+        <button class="btn-small" id="btnAddSeason" data-i18n="addSeason">+ Temporada</button>
+      </section>
+
+      <!-- Getting Light -->
+      <section class="panel-section">
+        <h3><span data-i18n="gettingLight">Chegar Leve</span> <button class="info-btn" data-info="gettingLight" aria-label="Info"><span>i</span></button></h3>
+        <p class="section-hint" data-i18n="gettingLightHint">Subtraia antes de planejar</p>
+      </section>
+
+      <!-- Gratitude Letters -->
+      <section class="panel-section">
+        <h3><span data-i18n="gratitudeLetters">Cartas de Gratidão</span> <button class="info-btn" data-info="gratitude" aria-label="Info"><span>i</span></button></h3>
+        <p class="section-hint" data-i18n="gratitudeHint">15-25 cartas escritas à mão</p>
+      </section>
+
+      <!-- Data Actions -->
+      <section class="panel-section panel-actions">
+        <button class="btn-action" id="btnExport" data-i18n="exportJSON">Exportar JSON</button>
+        <button class="btn-action" id="btnImport" data-i18n="importJSON">Importar JSON</button>
+        <input type="file" id="fileImport" accept=".json" hidden>
+        <button class="btn-action btn-danger" id="btnReset" data-i18n="resetAll">Resetar Tudo</button>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- QUICK DROP MODAL (note → label) -->
+  <div class="modal-overlay" id="quickDropOverlay" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="bdSchedule">Agendar Nota</h3>
+        <button class="modal-close" id="quickDropClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="qd-note-text" id="qdNoteText"></p>
+        <div class="form-group">
+          <label data-i18n="labelCategory">Categoria</label>
+          <div class="category-selector" id="qdCategorySelector"></div>
+        </div>
+        <p class="qd-date" id="qdDate"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-delete" id="qdCancel" data-i18n="bdCancel">Cancelar</button>
+        <button class="btn-save" id="qdConfirm" data-i18n="bdCreate">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LABEL MODAL -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal modal-label" role="dialog" aria-modal="true">
+      <h3 class="modal-label-title" data-i18n="newLabel">Nova Etiqueta</h3>
+      <button class="modal-close" id="modalClose" aria-label="Fechar">&times;</button>
+      <div class="modal-body">
+        <div class="label-text-wrap">
+          <input class="label-text-input" id="labelText" type="text" maxlength="60" placeholder="Ex: Maratona de Floripa, Jantar com pais...">
+          <span class="char-counter" id="charCounter">0/60</span>
+        </div>
+        <div class="category-grid" id="categoryGrid"></div>
+        <div class="date-selector-row">
+          <button type="button" class="date-btn active" id="dateStartBtn">
+            <span class="date-label" data-i18n="startDate">INÍCIO</span>
+            <span class="date-value" id="dateStartValue">&mdash;</span>
+          </button>
+          <button type="button" class="date-btn" id="dateEndBtn">
+            <span class="date-label" data-i18n="endDate">FIM</span>
+            <span class="date-value" id="dateEndValue">&mdash;</span>
+          </button>
+        </div>
+        <div class="inline-calendar" id="inlineCalendar"></div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="labelMisogi">
+            <span data-i18n="markMisogi">Marcar como Misogi</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="labelAdventure">
+            <span data-i18n="markAdventure">Mini-Aventura</span>
+          </label>
+        </div>
+        <button class="save-btn" id="btnSaveLabel" disabled data-i18n="save">SALVAR</button>
+        <button class="btn-delete btn-delete-label" id="btnDeleteLabel" hidden data-i18n="delete">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MISOGI MODAL -->
+  <div class="modal-overlay" id="misogiModalOverlay" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="defineMisogi">Definir Misogi</h3>
+        <button class="modal-close" id="misogiModalClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label data-i18n="misogiName">O Grande Desafio</label>
+          <input type="text" id="misogiText" class="form-input" placeholder="Ex: Ultramaratona de 100km">
+        </div>
+        <div class="form-group form-row">
+          <div>
+            <label data-i18n="startDate">Início</label>
+            <input type="date" id="misogiStart" class="form-input">
+          </div>
+          <div>
+            <label data-i18n="endDate">Fim</label>
+            <input type="date" id="misogiEnd" class="form-input">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-delete" id="btnDeleteMisogi" hidden data-i18n="removeMisogi">Remover</button>
+        <button class="btn-save" id="btnSaveMisogi" data-i18n="save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADVENTURE MODAL -->
+  <div class="modal-overlay" id="adventureModalOverlay" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="addAdventure">Mini-Aventura</h3>
+        <button class="modal-close" id="adventureModalClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label data-i18n="adventureName">Aventura</label>
+          <input type="text" id="adventureText" class="form-input" placeholder="Ex: Trilha no Pico da Neblina">
+        </div>
+        <div class="form-group">
+          <label data-i18n="adventureDate">Data</label>
+          <input type="date" id="adventureDate" class="form-input">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-delete" id="btnDeleteAdventure" hidden data-i18n="delete">Excluir</button>
+        <button class="btn-save" id="btnSaveAdventure" data-i18n="save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEASON MODAL -->
+  <div class="modal-overlay" id="seasonModalOverlay" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="addSeason">Temporada</h3>
+        <button class="modal-close" id="seasonModalClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label data-i18n="seasonType">Tipo</label>
+          <select id="seasonType" class="form-select">
+            <option value="push">Push</option>
+            <option value="recovery">Recovery</option>
+          </select>
+        </div>
+        <div class="form-group form-row">
+          <div>
+            <label data-i18n="startDate">Início</label>
+            <input type="date" id="seasonStart" class="form-input">
+          </div>
+          <div>
+            <label data-i18n="endDate">Fim</label>
+            <input type="date" id="seasonEnd" class="form-input">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-delete" id="btnDeleteSeason" hidden data-i18n="delete">Excluir</button>
+        <button class="btn-save" id="btnSaveSeason" data-i18n="save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INFO POPOVER (reused, positioned dynamically) -->
+  <div class="info-popover" id="infoPopover" hidden>
+    <div class="info-popover-arrow"></div>
+    <h4 class="info-popover-title" id="infoTitle"></h4>
+    <p class="info-popover-text" id="infoText"></p>
+  </div>
+
+  <!-- MOBILE INFO SHEET -->
+  <div class="info-sheet-overlay" id="infoSheetOverlay" hidden>
+    <div class="info-sheet" id="infoSheet">
+      <div class="info-sheet-handle"></div>
+      <h4 class="info-popover-title" id="infoSheetTitle"></h4>
+      <p class="info-popover-text" id="infoSheetText"></p>
+    </div>
+  </div>
+
+  <!-- TUTORIAL OVERLAY -->
+  <div class="tutorial-overlay" id="tutorialOverlay" hidden>
+    <div class="tutorial-mask" id="tutorialMask"></div>
+    <div class="tutorial-spotlight" id="tutorialSpotlight" hidden></div>
+    <div class="tutorial-card" id="tutorialCard"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

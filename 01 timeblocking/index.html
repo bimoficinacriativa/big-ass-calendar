@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="blue">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0094D6">
+  <title>Timeboxing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-row">
+        <h1>TIMEBOXING</h1>
+        <div class="theme-selector" role="group" aria-label="Tema">
+          <button class="theme-dot" data-theme="peach" style="background:#FCC0A0" title="Warm"></button>
+          <button class="theme-dot" data-theme="orange" style="background:#FF612E" title="Energy"></button>
+          <button class="theme-dot" data-theme="brown" style="background:#B65B3D" title="Earth"></button>
+          <button class="theme-dot" data-theme="lightblue" style="background:#7BBBD7" title="Light Blue"></button>
+          <button class="theme-dot active" data-theme="blue" style="background:#0094D6" title="Classic Blue"></button>
+          <button class="theme-dot" data-theme="teal" style="background:#225C75" title="Deep Ocean"></button>
+          <button class="theme-dot" data-theme="white" style="background:#FDFDFD;border:1px solid #ccc" title="Minimal"></button>
+          <button class="theme-dot" data-theme="silver" style="background:#EDEDED" title="Soft Gray"></button>
+          <button class="theme-dot" data-theme="gray" style="background:#ADADAD" title="Gray"></button>
+          <button class="theme-dot" data-theme="darkgray" style="background:#3B3B3B" title="Charcoal"></button>
+          <button class="theme-dot" data-theme="charcoal" style="background:#212121" title="Dark"></button>
+          <button class="theme-dot" data-theme="black" style="background:#000000" title="OLED Black"></button>
+        </div>
+      </div>
+      <div class="date-nav">
+        <button id="prev-day" title="Dia anterior">&#9664;</button>
+        <input type="date" id="current-date">
+        <button id="next-day" title="Próximo dia">&#9654;</button>
+        <button id="today-btn" title="Ir para hoje">HOJE</button>
+        <button id="clear-btn" title="Limpar dia">LIMPAR</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="left-column">
+        <section class="priorities">
+          <h2>PRIORIDADES</h2>
+          <div class="priority-list">
+            <div class="priority-item">
+              <span class="priority-number">1</span>
+              <input type="text" class="priority-input" data-priority="0" placeholder="Prioridade principal...">
+            </div>
+            <div class="priority-item">
+              <span class="priority-number">2</span>
+              <input type="text" class="priority-input" data-priority="1" placeholder="Segunda prioridade...">
+            </div>
+            <div class="priority-item">
+              <span class="priority-number">3</span>
+              <input type="text" class="priority-input" data-priority="2" placeholder="Terceira prioridade...">
+            </div>
+          </div>
+        </section>
+
+        <section class="braindump">
+          <h2>BRAIN DUMP</h2>
+          <textarea id="braindump" rows="12" placeholder="Ideias, lembretes, anotações livres..."></textarea>
+        </section>
+
+        <section class="categories-legend">
+          <h2>CATEGORIAS</h2>
+          <div class="legend-items">
+            <div class="legend-item" data-category="work"><span class="legend-color"></span><span class="legend-emoji">💼</span>Trabalho</div>
+            <div class="legend-item" data-category="personal"><span class="legend-color"></span><span class="legend-emoji">🧘</span>Pessoal</div>
+            <div class="legend-item" data-category="health"><span class="legend-color"></span><span class="legend-emoji">💪</span>Saúde</div>
+            <div class="legend-item" data-category="study"><span class="legend-color"></span><span class="legend-emoji">📚</span>Estudo</div>
+            <div class="legend-item" data-category="social"><span class="legend-color"></span><span class="legend-emoji">👥</span>Social</div>
+            <div class="legend-item" data-category="rest"><span class="legend-color"></span><span class="legend-emoji">😴</span>Descanso</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="right-column">
+        <section class="schedule">
+          <h2>GRADE DE HORÁRIOS</h2>
+          <div class="schedule-table-wrapper">
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th class="col-hour">HORA</th>
+                  <th class="col-half">:00</th>
+                  <th class="col-half">:30</th>
+                </tr>
+              </thead>
+              <tbody id="schedule-body">
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="category-picker" class="category-picker hidden">
+    <button data-category="" title="Sem categoria">✕</button>
+    <button data-category="work" title="Trabalho"><span>💼</span></button>
+    <button data-category="personal" title="Pessoal"><span>🧘</span></button>
+    <button data-category="health" title="Saúde"><span>💪</span></button>
+    <button data-category="study" title="Estudo"><span>📚</span></button>
+    <button data-category="social" title="Social"><span>👥</span></button>
+    <button data-category="rest" title="Descanso"><span>😴</span></button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
