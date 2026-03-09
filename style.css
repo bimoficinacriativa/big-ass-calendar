@@ -1236,6 +1236,591 @@ body {
 .wv-label:hover { opacity: 0.85; }
 
 /* ============================================
+   DAY VIEW (Timeboxing) — Athletic Training Board
+   ============================================ */
+
+.view-day {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  animation: dayViewIn 0.3s ease-out;
+}
+
+@keyframes dayViewIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.view-day[hidden] { display: none; }
+
+/* --- Day Header: bold, asymmetric --- */
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 10px 24px;
+  flex-shrink: 0;
+  background: var(--header-bg);
+  border-bottom: 3px solid var(--title);
+  position: relative;
+}
+
+.day-header::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 120px;
+  height: 3px;
+  background: var(--today-border);
+}
+
+.day-header .month-nav-arrow {
+  opacity: 0.5;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.day-header .month-nav-arrow:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.day-header-center {
+  text-align: center;
+  min-width: 240px;
+}
+
+.day-title {
+  font-size: clamp(20px, 2.5vw, 36px);
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--title);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.day-date {
+  font-size: clamp(10px, 1vw, 13px);
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.45;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* --- Two-column layout --- */
+.day-body {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.day-left {
+  padding: 20px 20px 20px 24px;
+  overflow-y: auto;
+  border-right: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      var(--border) 31px,
+      var(--border) 32px
+    );
+  background-position: 0 0;
+  background-size: 100% 32px;
+}
+
+.day-right {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.day-section {
+  background: transparent;
+}
+
+/* --- Section Titles: thick left accent --- */
+.day-section-title {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--title);
+  margin-bottom: 12px;
+  padding: 0 0 0 12px;
+  border-bottom: none;
+  border-left: 4px solid var(--title);
+  line-height: 1;
+  opacity: 0.7;
+}
+
+/* --- Priorities: scoreboard numbers --- */
+.day-priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.day-priority-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  transition: transform 0.1s;
+}
+
+.day-priority-item:hover {
+  transform: translateX(2px);
+}
+
+.day-priority-num {
+  font-weight: 900;
+  font-size: clamp(28px, 2.5vw, 40px);
+  color: var(--title);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0.2;
+  transition: opacity 0.2s;
+}
+
+/* Light up number when input has content */
+.day-priority-item:has(.day-priority-input:not(:placeholder-shown)) .day-priority-num,
+.day-priority-item:focus-within .day-priority-num {
+  opacity: 0.8;
+}
+
+.day-priority-input {
+  flex: 1;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 6px 0;
+  font-family: inherit;
+  font-size: clamp(14px, 1.1vw, 17px);
+  font-weight: 700;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.day-priority-input:focus {
+  border-bottom-color: var(--title);
+}
+
+.day-priority-input::placeholder {
+  color: var(--border);
+  font-weight: 500;
+  opacity: 0.5;
+}
+
+/* --- Brain Dump: notebook feel --- */
+.day-braindump {
+  position: relative;
+}
+
+.day-braindump textarea {
+  width: 100%;
+  border: none;
+  border-left: 3px solid var(--border);
+  border-radius: 0;
+  padding: 8px 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  resize: vertical;
+  min-height: 100px;
+  color: var(--text);
+  background: transparent;
+  outline: none;
+  line-height: 32px;
+  transition: border-color 0.2s;
+}
+
+.day-braindump textarea:focus {
+  border-left-color: var(--title);
+}
+
+.day-braindump textarea::placeholder {
+  color: var(--border);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* --- Day Labels: bold pills --- */
+.day-labels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.day-label-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.day-label-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.day-label-chip .label-emoji {
+  font-size: 13px;
+}
+
+.day-add-label-btn {
+  background: transparent;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.4;
+}
+
+.day-add-label-btn:hover {
+  opacity: 1;
+  background: var(--hover-bg);
+  border-color: var(--title);
+}
+
+/* ============================================
+   SCHEDULE GRID — Training Board
+   ============================================ */
+.day-schedule {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.day-schedule .day-section-title {
+  padding: 14px 20px 8px;
+  margin-bottom: 0;
+  border-bottom: none;
+  border-left: 4px solid var(--title);
+  margin-left: 16px;
+}
+
+.day-schedule-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+.day-schedule-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.day-schedule-table th {
+  background: var(--header-bg);
+  padding: 8px 6px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.5;
+  text-align: center;
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.day-col-hour { width: 56px; }
+
+.day-schedule-table td {
+  padding: 0;
+  height: 40px;
+  vertical-align: middle;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Zebra striping — every other hour gets subtle tint */
+.day-schedule-table tr:nth-child(odd) td {
+  background: var(--cell-bg);
+}
+
+.day-schedule-table tr:nth-child(even) td {
+  background: var(--header-bg);
+}
+
+/* Vertical divider between :00 and :30 */
+.day-schedule-table td.day-time-cell:first-of-type {
+  border-right: 1px dashed var(--border);
+}
+
+.day-schedule-table td.day-hour-cell {
+  text-align: center;
+  font-size: clamp(11px, 0.9vw, 15px);
+  font-weight: 900;
+  color: var(--text);
+  opacity: 0.35;
+  padding: 4px;
+  cursor: default;
+  letter-spacing: 1px;
+  border-right: 2px solid var(--border);
+  transition: opacity 0.2s, color 0.2s;
+}
+
+/* Light up hour label when row has content */
+.day-schedule-table tr:has(.day-cell-input:not([value=""])) td.day-hour-cell,
+.day-schedule-table tr:has(td[data-cat]) td.day-hour-cell {
+  opacity: 0.8;
+}
+
+.day-schedule-table td.day-time-cell {
+  position: relative;
+  cursor: text;
+}
+
+.day-schedule-table td.day-time-cell:hover {
+  background: var(--hover-bg) !important;
+}
+
+.day-schedule-table td.day-time-cell .day-cell-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 4px 28px 4px 12px;
+  font-family: inherit;
+  font-size: clamp(12px, 0.85vw, 15px);
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+}
+
+.day-schedule-table td.day-time-cell .day-cell-input::placeholder {
+  color: transparent;
+}
+
+/* --- Category Dot: larger, more visible --- */
+.day-schedule-table td.day-time-cell .day-cat-dot {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--border);
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.2s, box-shadow 0.2s;
+}
+
+.day-schedule-table td.day-time-cell:hover .day-cat-dot {
+  opacity: 0.4;
+}
+
+.day-schedule-table td.day-time-cell .day-cat-dot.has-cat {
+  opacity: 1;
+  border-color: transparent;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+}
+
+.day-schedule-table td.day-time-cell .day-cat-dot.has-cat:hover {
+  transform: translateY(-50%) scale(1.3);
+}
+
+/* --- Category Colors: bold left-gradient --- */
+td.day-time-cell[data-cat="adventure"]  { background: linear-gradient(90deg, rgba(0, 148, 214, 0.2) 0%, rgba(0, 148, 214, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="marriage"]   { background: linear-gradient(90deg, rgba(236, 64, 122, 0.2) 0%, rgba(236, 64, 122, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="health"]     { background: linear-gradient(90deg, rgba(124, 179, 66, 0.2) 0%, rgba(124, 179, 66, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="kids"]       { background: linear-gradient(90deg, rgba(151, 145, 241, 0.2) 0%, rgba(151, 145, 241, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="business"]   { background: linear-gradient(90deg, rgba(255, 97, 46, 0.2) 0%, rgba(255, 97, 46, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="personal"]   { background: linear-gradient(90deg, rgba(253, 216, 53, 0.22) 0%, rgba(253, 216, 53, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="family"]     { background: linear-gradient(90deg, rgba(229, 57, 53, 0.2) 0%, rgba(229, 57, 53, 0.04) 100%) !important; }
+td.day-time-cell[data-cat="finance"]    { background: linear-gradient(90deg, rgba(0, 188, 212, 0.2) 0%, rgba(0, 188, 212, 0.04) 100%) !important; }
+
+/* Category dot colors */
+td.day-time-cell[data-cat="adventure"]  .day-cat-dot { background: #0094D6; }
+td.day-time-cell[data-cat="marriage"]   .day-cat-dot { background: #EC407A; }
+td.day-time-cell[data-cat="health"]     .day-cat-dot { background: #7CB342; }
+td.day-time-cell[data-cat="kids"]       .day-cat-dot { background: #9791F1; }
+td.day-time-cell[data-cat="business"]   .day-cat-dot { background: #FF612E; }
+td.day-time-cell[data-cat="personal"]   .day-cat-dot { background: #FDD835; }
+td.day-time-cell[data-cat="family"]     .day-cat-dot { background: #E53935; }
+td.day-time-cell[data-cat="finance"]    .day-cat-dot { background: #00BCD4; }
+
+/* ============================================
+   CURRENT HOUR — Neon glow
+   ============================================ */
+.day-schedule-table tr.day-current-hour td {
+  box-shadow: inset 0 0 0 2px var(--today-border);
+  position: relative;
+}
+
+.day-schedule-table tr.day-current-hour td.day-hour-cell {
+  background: rgba(255, 97, 46, 0.15) !important;
+  color: var(--today-border);
+  font-weight: 900;
+  opacity: 1;
+  text-shadow: 0 0 12px rgba(255, 97, 46, 0.4);
+}
+
+@keyframes pulse-day-glow {
+  0%, 100% {
+    box-shadow: inset 0 0 0 2px var(--today-border), 0 0 8px rgba(255, 97, 46, 0.1);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px var(--today-border), 0 0 20px rgba(255, 97, 46, 0.25);
+  }
+}
+
+.day-schedule-table tr.day-current-hour td:first-child {
+  animation: pulse-day-glow 2.5s ease-in-out infinite;
+}
+
+/* --- NOW LINE: dramatic laser --- */
+.day-time-now {
+  position: absolute;
+  left: 56px;
+  right: 0;
+  height: 2px;
+  background: var(--today-border);
+  z-index: 3;
+  pointer-events: none;
+  transition: top 0.5s ease;
+  box-shadow: 0 0 12px rgba(255, 97, 46, 0.4), 0 0 4px rgba(255, 97, 46, 0.6);
+}
+
+.day-time-now::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--today-border);
+  box-shadow: 0 0 10px rgba(255, 97, 46, 0.5);
+}
+
+@keyframes now-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 97, 46, 0.5); }
+  50% { box-shadow: 0 0 18px rgba(255, 97, 46, 0.8), 0 0 4px rgba(255, 97, 46, 1); }
+}
+
+.day-time-now::before {
+  animation: now-pulse 2s ease-in-out infinite;
+}
+
+/* --- Category Picker --- */
+.day-cat-picker {
+  position: fixed;
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 230px;
+  box-shadow: 0 12px 40px var(--modal-shadow), 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 200;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.day-cat-picker.hidden { display: none; }
+
+.day-cat-picker button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+  background: var(--header-bg);
+  padding: 0;
+}
+
+.day-cat-picker button:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Day Nav Today Button --- */
+.day-today-btn {
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1px;
+  padding: 3px 12px !important;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 1px solid var(--btn-bg) !important;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+}
+
+.day-today-btn:hover {
+  opacity: 0.85;
+}
+
+/* ============================================
+   DAY VIEW — Responsive
+   ============================================ */
+@media (max-width: 768px) {
+  .day-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .day-left {
+    border-right: none;
+    border-bottom: 2px solid var(--border);
+    overflow: visible;
+    background: none;
+    padding: 16px;
+  }
+
+  .day-priority-num { font-size: 24px; }
+  .day-schedule-table td { height: 38px; }
+}
+
+/* ============================================
    SIDE PANEL
    ============================================ */
 

@@ -78,6 +78,7 @@
       <button class="zoom-btn" data-zoom="q4">Q4</button>
       <button class="zoom-btn" data-zoom="month" data-i18n="zoomMonth">MÊS</button>
       <button class="zoom-btn" data-zoom="week" data-i18n="zoomWeek">SEMANA</button>
+      <button class="zoom-btn" data-zoom="day" data-i18n="zoomDay">DIA</button>
     </div>
     <div class="zoom-nav" id="monthNav" style="display:none">
       <button class="zoom-nav-btn" id="monthPrev" aria-label="Mês anterior">&#9664;</button>
@@ -88,6 +89,12 @@
       <button class="zoom-nav-btn" id="weekPrev" aria-label="Semana anterior">&#9664;</button>
       <span class="zoom-nav-label" id="weekNavLabel">—</span>
       <button class="zoom-nav-btn" id="weekNext" aria-label="Próxima semana">&#9654;</button>
+    </div>
+    <div class="zoom-nav" id="dayNav" style="display:none">
+      <button class="zoom-nav-btn" id="dayPrev" aria-label="Dia anterior">&#9664;</button>
+      <span class="zoom-nav-label" id="dayNavLabel">—</span>
+      <button class="zoom-nav-btn" id="dayNext" aria-label="Próximo dia">&#9654;</button>
+      <button class="zoom-nav-btn day-today-btn" id="dayToday" data-i18n="zoomDayToday">HOJE</button>
     </div>
     <button class="zoom-btn bd-toggle-btn" id="bdToggle" style="display:none" title="Brain Dump">&#x1F4DD;</button>
   </nav>
@@ -258,7 +265,76 @@
       <div class="week-view-alt" id="weekViewContent"></div>
     </section>
 
+    <!-- DAY VIEW (Timeboxing) -->
+    <section class="view-day" id="viewDay" hidden>
+      <div class="day-header">
+        <button class="month-nav-arrow" id="dvPrev" aria-label="Dia anterior">&#9664;</button>
+        <div class="day-header-center">
+          <h2 class="day-title" id="dvTitle">SEGUNDA-FEIRA</h2>
+          <span class="day-date" id="dvDate">9 DE MAR&Ccedil;O 2026</span>
+        </div>
+        <button class="month-nav-arrow" id="dvNext" aria-label="Pr&oacute;ximo dia">&#9654;</button>
+      </div>
+
+      <div class="day-body">
+        <!-- Left: Priorities + Brain Dump + Labels -->
+        <div class="day-left">
+          <div class="day-section day-priorities">
+            <h3 class="day-section-title" data-i18n="dayPriorities">PRIORIDADES</h3>
+            <div class="day-priority-list">
+              <div class="day-priority-item">
+                <span class="day-priority-num">1</span>
+                <input type="text" class="day-priority-input" data-priority="0" placeholder="" maxlength="80">
+              </div>
+              <div class="day-priority-item">
+                <span class="day-priority-num">2</span>
+                <input type="text" class="day-priority-input" data-priority="1" placeholder="" maxlength="80">
+              </div>
+              <div class="day-priority-item">
+                <span class="day-priority-num">3</span>
+                <input type="text" class="day-priority-input" data-priority="2" placeholder="" maxlength="80">
+              </div>
+            </div>
+          </div>
+
+          <div class="day-section day-braindump">
+            <h3 class="day-section-title" data-i18n="dayBrainDump">BRAIN DUMP</h3>
+            <textarea id="dayBraindump" rows="8" placeholder="" maxlength="2000"></textarea>
+          </div>
+
+          <div class="day-section day-labels-section">
+            <h3 class="day-section-title" data-i18n="dayLabels">ETIQUETAS DO DIA</h3>
+            <div class="day-labels-list" id="dayLabelsList"></div>
+            <button class="day-add-label-btn" id="dayAddLabel" data-i18n="newLabel">+ Nova Etiqueta</button>
+          </div>
+        </div>
+
+        <!-- Right: Schedule Grid -->
+        <div class="day-right">
+          <div class="day-section day-schedule">
+            <h3 class="day-section-title" data-i18n="daySchedule">GRADE DE HOR&Aacute;RIOS</h3>
+            <div class="day-schedule-wrapper">
+              <div class="day-time-now" id="dayTimeNow" hidden></div>
+              <table class="day-schedule-table">
+                <thead>
+                  <tr>
+                    <th class="day-col-hour" data-i18n="dayHour">HORA</th>
+                    <th class="day-col-half">:00</th>
+                    <th class="day-col-half">:30</th>
+                  </tr>
+                </thead>
+                <tbody id="dayScheduleBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- DAY VIEW CATEGORY PICKER -->
+  <div id="dayCategoryPicker" class="day-cat-picker hidden"></div>
 
   <!-- SIDE PANEL (Dashboard) -->
   <aside class="side-panel" id="sidePanel" aria-hidden="true">
