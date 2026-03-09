@@ -55,8 +55,11 @@
   }
 
   // --- Firestore ---
+  // Each user gets their own data: users/{uid}/calendars/{calId}
   function getDocRef() {
-    return db.collection('calendars').doc(currentCalendar);
+    if (!currentUser) return null;
+    return db.collection('users').doc(currentUser.uid)
+      .collection('calendars').doc(currentCalendar);
   }
 
   function saveToFirestore(state) {
@@ -217,7 +220,6 @@
       var newData = localStorage.getItem(newKey);
       if (oldData && !newData) {
         localStorage.setItem(newKey, oldData);
-        // Also push to Firestore if logged in
         if (currentUser) {
           try {
             var parsed = JSON.parse(oldData);
@@ -228,6 +230,35 @@
           } catch (e) { /* ignore */ }
         }
       }
+    },
+
+    // Migrate data from old shared collection (calendars/{calId})
+    // to per-user collection (users/{uid}/calendars/{calId})
+    migrateFromShared: function () {
+      if (!currentUser) return Promise.resolve();
+      var migrationKey = 'bac_migrated_' + currentUser.uid;
+      if (localStorage.getItem(migrationKey)) return Promise.resolve();
+
+      var promises = CALENDARS.map(function (cal) {
+        var oldRef = db.collection('calendars').doc(cal.id);
+        var newRef = db.collection('users').doc(currentUser.uid)
+          .collection('calendars').doc(cal.id);
+
+        return newRef.get().then(function (newDoc) {
+          if (newDoc.exists) return; // already has data, skip
+          return oldRef.get().then(function (oldDoc) {
+            if (oldDoc.exists) {
+              return newRef.set(oldDoc.data());
+            }
+          });
+        });
+      });
+
+      return Promise.all(promises).then(function () {
+        localStorage.setItem(migrationKey, '1');
+      }).catch(function (err) {
+        console.warn('Migration error:', err);
+      });
     }
   };
 
@@ -241,8 +272,12 @@
       // Migrate old localStorage data
       window.BACSync.migrateLocalData();
 
+      // Migrate from old shared collection to per-user collection
+      window.BACSync.migrateFromShared().then(function () {
+
       // Load from Firestore and merge with local
-      loadFromFirestore().then(function (cloudData) {
+      return loadFromFirestore();
+      }).then(function (cloudData) {
         if (cloudData) {
           // Update local cache
           localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(cloudData));
