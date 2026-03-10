@@ -115,13 +115,32 @@
   }
 
   function saveToFirestore(state) {
-    if (!currentUser) return Promise.resolve();
+    if (!currentUser) {
+      setSyncStatus('idle');
+      return Promise.resolve();
+    }
     savingInProgress = true;
     setSyncStatus('saving');
-    return getDocRef().set(state, { merge: true }).then(function () {
-      savingInProgress = false;
-      setSyncStatus('saved');
+    // Strip undefined values by round-tripping through JSON
+    var clean = JSON.parse(JSON.stringify(state));
+    // Safety timeout: if promise never resolves, show error after 10s
+    var timedOut = false;
+    var safetyTimer = setTimeout(function () {
+      timedOut = true;
+      if (syncStatus === 'saving') {
+        savingInProgress = false;
+        setSyncStatus('error');
+        console.error('Firestore save timeout — write did not resolve in 10s');
+      }
+    }, 10000);
+    return getDocRef().set(clean, { merge: true }).then(function () {
+      clearTimeout(safetyTimer);
+      if (!timedOut) {
+        savingInProgress = false;
+        setSyncStatus('saved');
+      }
     }).catch(function (err) {
+      clearTimeout(safetyTimer);
       savingInProgress = false;
       setSyncStatus('error');
       console.error('Firestore save error:', err);
@@ -370,6 +389,7 @@
 
     save: function (state) {
       localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(state));
+      if (!currentUser) return; // No Firestore sync without login
       // Debounce Firestore writes (500ms) to avoid spamming on rapid input
       if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
       setSyncStatus('saving');
