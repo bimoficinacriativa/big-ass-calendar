@@ -2077,6 +2077,7 @@
     var entry = dayData.schedule[key];
     if (entry) {
       input.value = entry.text || '';
+      if (entry.text) td.classList.add('has-text');
       if (entry.category) {
         td.setAttribute('data-cat', entry.category);
       }
@@ -2096,6 +2097,10 @@
     });
 
     input.addEventListener('input', function() {
+      td.classList.toggle('has-text', !!input.value);
+      if (!input.value) {
+        td.classList.remove('done');
+      }
       var cat = td.getAttribute('data-cat') || '';
       var done = td.classList.contains('done');
       saveTimeboxingSchedule(dateStr, key, input.value, cat, done);

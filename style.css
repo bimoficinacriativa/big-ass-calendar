@@ -1734,13 +1734,12 @@ td.day-time-cell[data-cat="finance"]    .day-cat-dot { background: #00BCD4; }
   box-sizing: border-box;
 }
 
-td.day-time-cell:hover .day-done-toggle,
-td.day-time-cell .day-cell-input:not([value=""]) ~ .day-done-toggle {
-  opacity: 0;
+td.day-time-cell.has-text .day-done-toggle {
+  opacity: 0.25;
 }
 
-td.day-time-cell:hover .day-done-toggle {
-  opacity: 0.3;
+td.day-time-cell.has-text:hover .day-done-toggle {
+  opacity: 0.5;
 }
 
 td.day-time-cell.done .day-done-toggle {
