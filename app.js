@@ -330,13 +330,16 @@
           return s;
         }
       }
-      // Fallback to legacy localStorage
-      const legacyRaw = localStorage.getItem(STORAGE_KEY_LEGACY);
-      if (legacyRaw) {
-        const parsed = JSON.parse(legacyRaw);
-        const s = Object.assign(defaultState(), parsed);
-        if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
-        return s;
+      // Fallback to legacy localStorage (only when NOT logged in,
+      // to prevent leaking another account's data)
+      if (!window.BACSync || !window.BACSync.isLoggedIn()) {
+        const legacyRaw = localStorage.getItem(STORAGE_KEY_LEGACY);
+        if (legacyRaw) {
+          const parsed = JSON.parse(legacyRaw);
+          const s = Object.assign(defaultState(), parsed);
+          if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
+          return s;
+        }
       }
     } catch (e) { /* ignore */ }
     return defaultState();

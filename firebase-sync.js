@@ -23,14 +23,6 @@
   });
 
   // New users start with no calendars (just the + button)
-  const DEFAULT_CALENDARS = [];
-
-  // Old hardcoded calendars (for migration)
-  const LEGACY_CALENDARS = [
-    { id: 'oc', label: 'OC', emoji: '\uD83E\uDDE1' },
-    { id: 'marcos', label: 'Marcos', emoji: '\uD83E\uDDD9\u200D\u2642\uFE0F' },
-    { id: 'jessica', label: 'Jessica', emoji: '\uD83E\uDDD9\u200D\u2640\uFE0F' }
-  ];
 
   let calendars = [];
   let currentCalendar = localStorage.getItem('bac_current_calendar') || 'default';
@@ -40,6 +32,12 @@
   let savingInProgress = false;
   let saveDebounceTimer = null;
   let syncStatus = 'idle'; // 'idle' | 'saving' | 'saved' | 'error' | 'offline'
+
+  // localStorage key scoped by UID (isolates data between accounts)
+  function storageKey(calId) {
+    var uid = currentUser ? currentUser.uid : '_local';
+    return 'bac_' + uid + '_' + (calId || currentCalendar);
+  }
 
   // --- Auth ---
   function signIn() {
@@ -333,52 +331,9 @@
     }
   }
 
-  // --- Migration ---
-  function migrateFromShared() {
-    if (!currentUser) return Promise.resolve();
-    var migrationKey = 'bac_migrated_' + currentUser.uid;
-    if (localStorage.getItem(migrationKey)) return Promise.resolve();
-
-    var promises = LEGACY_CALENDARS.map(function (cal) {
-      var oldRef = db.collection('calendars').doc(cal.id);
-      var newRef = db.collection('users').doc(currentUser.uid)
-        .collection('calendars').doc(cal.id);
-
-      return newRef.get().then(function (newDoc) {
-        if (newDoc.exists) return;
-        return oldRef.get().then(function (oldDoc) {
-          if (oldDoc.exists) {
-            return newRef.set(oldDoc.data());
-          }
-        });
-      });
-    });
-
-    return Promise.all(promises).then(function () {
-      localStorage.setItem(migrationKey, '1');
-    }).catch(function (err) {
-      console.warn('Migration error:', err);
-    });
-  }
-
-  function migrateLocalData() {
-    var oldKey = 'bigasscalendar_2026';
-    var newKey = 'bigasscalendar_2026_oc';
-    var oldData = localStorage.getItem(oldKey);
-    var newData = localStorage.getItem(newKey);
-    if (oldData && !newData) {
-      localStorage.setItem(newKey, oldData);
-      if (currentUser) {
-        try {
-          var parsed = JSON.parse(oldData);
-          var prevCal = currentCalendar;
-          currentCalendar = 'oc';
-          saveToFirestore(parsed);
-          currentCalendar = prevCal;
-        } catch (e) { /* ignore */ }
-      }
-    }
-  }
+  // --- Migration (legacy, completed — kept as no-ops) ---
+  // migrateFromShared and migrateLocalData removed:
+  // They copied data to any new user who logged in.
 
   // --- Public API ---
   window.BACSync = {
@@ -388,7 +343,7 @@
     user: function () { return currentUser; },
 
     save: function (state) {
-      localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(state));
+      localStorage.setItem(storageKey(), JSON.stringify(state));
       if (!currentUser) return; // No Firestore sync without login
       // Debounce Firestore writes (500ms) to avoid spamming on rapid input
       if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
@@ -399,9 +354,8 @@
     },
 
     load: function () {
-      var key = 'bigasscalendar_2026_' + currentCalendar;
       try {
-        var raw = localStorage.getItem(key);
+        var raw = localStorage.getItem(storageKey());
         if (raw) return JSON.parse(raw);
       } catch (e) { /* ignore */ }
       return null;
@@ -414,7 +368,7 @@
     listen: function (callback) {
       onStateChangeCallback = callback;
       listenToFirestore(function (data) {
-        localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(data));
+        localStorage.setItem(storageKey(), JSON.stringify(data));
         callback(data);
       });
     },
@@ -433,38 +387,13 @@
     renderAuthUI();
 
     if (user) {
-      migrateLocalData();
-
-      // Load user's calendar profiles, then migrate, then load data
+      // Load user's calendar profiles from Firestore
       loadCalendarsFromProfile().then(function (savedCalendars) {
         if (savedCalendars && savedCalendars.length > 0) {
           calendars = savedCalendars;
         } else {
-          // First-time user: check if they have legacy data
-          return migrateFromShared().then(function () {
-            // Check if legacy calendars have data
-            var checks = LEGACY_CALENDARS.map(function (cal) {
-              return db.collection('users').doc(currentUser.uid)
-                .collection('calendars').doc(cal.id).get()
-                .then(function (doc) { return doc.exists ? cal : null; });
-            });
-            return Promise.all(checks);
-          }).then(function (results) {
-            if (results) {
-              var withData = results.filter(function (c) { return c !== null; });
-              if (withData.length > 0) {
-                // Use legacy calendars that have data
-                calendars = withData;
-                currentCalendar = withData[0].id;
-                localStorage.setItem('bac_current_calendar', currentCalendar);
-              } else {
-                calendars = [];
-              }
-            } else {
-              calendars = [];
-            }
-            return saveCalendarsToProfile();
-          });
+          // New user: start with empty calendars (just the + button)
+          calendars = [];
         }
       }).then(function () {
         // Ensure currentCalendar is valid
@@ -478,22 +407,19 @@
 
         renderCalendarSwitcher();
 
-        // Load calendar data
+        // Load calendar data from Firestore only
         return loadFromFirestore();
       }).then(function (cloudData) {
         if (cloudData) {
-          localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(cloudData));
+          localStorage.setItem(storageKey(), JSON.stringify(cloudData));
           if (onStateChangeCallback) onStateChangeCallback(cloudData);
-        } else {
-          var localRaw = localStorage.getItem('bigasscalendar_2026_' + currentCalendar);
-          if (localRaw) {
-            try { saveToFirestore(JSON.parse(localRaw)); } catch (e) { /* ignore */ }
-          }
         }
+        // New users with no cloud data: do NOT upload localStorage
+        // (localStorage may contain another account's data)
 
         if (onStateChangeCallback) {
           listenToFirestore(function (data) {
-            localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(data));
+            localStorage.setItem(storageKey(), JSON.stringify(data));
             onStateChangeCallback(data);
           });
         }
