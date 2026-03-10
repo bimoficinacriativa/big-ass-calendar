@@ -1872,7 +1872,11 @@
   function getTimeboxingDay(dateStr) {
     if (!state.timeboxing) state.timeboxing = {};
     if (!state.timeboxing[dateStr]) {
-      state.timeboxing[dateStr] = { priorities: ['', '', ''], braindump: '', schedule: {} };
+      state.timeboxing[dateStr] = { priorities: ['', '', ''], prioritiesDone: [false, false, false], braindump: '', schedule: {} };
+    }
+    // Migration: ensure prioritiesDone exists for old data
+    if (!state.timeboxing[dateStr].prioritiesDone) {
+      state.timeboxing[dateStr].prioritiesDone = [false, false, false];
     }
     return state.timeboxing[dateStr];
   }
@@ -1883,12 +1887,12 @@
     saveState();
   }
 
-  function saveTimeboxingSchedule(dateStr, key, text, category) {
+  function saveTimeboxingSchedule(dateStr, key, text, category, done) {
     var day = getTimeboxingDay(dateStr);
     if (!text && !category) {
       delete day.schedule[key];
     } else {
-      day.schedule[key] = { text: text || '', category: category || '' };
+      day.schedule[key] = { text: text || '', category: category || '', done: !!done };
     }
     // Clean up empty day entries
     if (!day.priorities.some(function(p) { return p; }) && !day.braindump && Object.keys(day.schedule).length === 0) {
@@ -1919,14 +1923,50 @@
     // --- Priorities ---
     document.querySelectorAll('.day-priority-input').forEach(function(input) {
       var idx = parseInt(input.dataset.priority, 10);
+      var item = input.closest('.day-priority-item');
       input.value = dayData.priorities[idx] || '';
       input.placeholder = t('dayPriorityPh');
+
+      // Done toggle for priority
+      var existingToggle = item.querySelector('.day-done-toggle');
+      if (!existingToggle) {
+        existingToggle = document.createElement('div');
+        existingToggle.className = 'day-done-toggle';
+        item.insertBefore(existingToggle, input);
+      }
+
+      // Restore done state
+      if (dayData.prioritiesDone[idx]) {
+        item.classList.add('done');
+      } else {
+        item.classList.remove('done');
+      }
+
       // Remove old listeners by cloning
       var clone = input.cloneNode(true);
       input.parentNode.replaceChild(clone, input);
+
+      // Clone toggle too to remove old listeners
+      var toggleClone = existingToggle.cloneNode(true);
+      existingToggle.parentNode.replaceChild(toggleClone, existingToggle);
+
+      toggleClone.addEventListener('click', function() {
+        var data = getTimeboxingDay(dateStr);
+        var i = parseInt(clone.dataset.priority, 10);
+        if (!data.priorities[i]) return;
+        data.prioritiesDone[i] = !data.prioritiesDone[i];
+        item.classList.toggle('done', data.prioritiesDone[i]);
+        saveState();
+      });
+
       clone.addEventListener('input', function() {
         var data = getTimeboxingDay(dateStr);
-        data.priorities[parseInt(clone.dataset.priority, 10)] = clone.value;
+        var i = parseInt(clone.dataset.priority, 10);
+        data.priorities[i] = clone.value;
+        if (!clone.value) {
+          data.prioritiesDone[i] = false;
+          item.classList.remove('done');
+        }
         saveState();
       });
     });
@@ -2025,6 +2065,10 @@
     var key = hour + '_' + half;
     td.dataset.key = key;
 
+    // Done toggle (Apple Notes-style circle)
+    var toggle = document.createElement('div');
+    toggle.className = 'day-done-toggle';
+
     var input = document.createElement('input');
     input.type = 'text';
     input.className = 'day-cell-input';
@@ -2036,11 +2080,25 @@
       if (entry.category) {
         td.setAttribute('data-cat', entry.category);
       }
+      if (entry.done) {
+        td.classList.add('done');
+      }
     }
+
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var data = getTimeboxingDay(dateStr);
+      var ent = data.schedule[key];
+      if (!ent || !ent.text) return;
+      ent.done = !ent.done;
+      td.classList.toggle('done', ent.done);
+      saveState();
+    });
 
     input.addEventListener('input', function() {
       var cat = td.getAttribute('data-cat') || '';
-      saveTimeboxingSchedule(dateStr, key, input.value, cat);
+      var done = td.classList.contains('done');
+      saveTimeboxingSchedule(dateStr, key, input.value, cat, done);
     });
 
     var dot = document.createElement('div');
@@ -2051,6 +2109,7 @@
       openDayCategoryPicker(td, dot, dateStr);
     });
 
+    td.appendChild(toggle);
     td.appendChild(input);
     td.appendChild(dot);
     return td;
@@ -2122,7 +2181,8 @@
       dot.classList.remove('has-cat');
     }
 
-    saveTimeboxingSchedule(dateStr, key, input.value, cat);
+    var done = cell.classList.contains('done');
+    saveTimeboxingSchedule(dateStr, key, input.value, cat, done);
     closeDayCategoryPicker();
   });
 

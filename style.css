@@ -1712,6 +1712,116 @@ td.day-time-cell[data-cat="family"]     .day-cat-dot { background: #E53935; }
 td.day-time-cell[data-cat="finance"]    .day-cat-dot { background: #00BCD4; }
 
 /* ============================================
+   DONE / STRIKETHROUGH (Apple Notes style)
+   ============================================ */
+
+/* Toggle circle — schedule cells */
+.day-done-toggle {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.2s, border-color 0.2s;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+td.day-time-cell:hover .day-done-toggle,
+td.day-time-cell .day-cell-input:not([value=""]) ~ .day-done-toggle {
+  opacity: 0;
+}
+
+td.day-time-cell:hover .day-done-toggle {
+  opacity: 0.3;
+}
+
+td.day-time-cell.done .day-done-toggle {
+  opacity: 1;
+  background: var(--btn-bg, #0094D6);
+  border-color: var(--btn-bg, #0094D6);
+}
+
+td.day-time-cell.done .day-done-toggle::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+td.day-time-cell.done .day-cell-input {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+
+/* Adjust input padding to make room for toggle */
+.day-schedule-table td.day-time-cell .day-cell-input {
+  padding-left: 24px;
+}
+
+/* Toggle circle — priority items */
+.day-priority-item {
+  position: relative;
+}
+
+.day-priority-item .day-done-toggle {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s, background 0.2s, border-color 0.2s;
+  margin: 0 4px;
+  box-sizing: border-box;
+}
+
+.day-priority-item:hover .day-done-toggle {
+  opacity: 0.5;
+}
+
+.day-priority-item.done .day-done-toggle {
+  opacity: 1;
+  background: var(--btn-bg, #0094D6);
+  border-color: var(--btn-bg, #0094D6);
+}
+
+.day-priority-item.done .day-done-toggle::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.day-priority-item.done .day-priority-input {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+
+/* ============================================
    CURRENT HOUR — Neon glow
    ============================================ */
 .day-schedule-table tr.day-current-hour td {
@@ -4758,4 +4868,6 @@ body {
     animation: none;
     box-shadow: inset 0 0 0 2px #E53935;
   }
+
+  .day-done-toggle { display: none !important; }
 }
