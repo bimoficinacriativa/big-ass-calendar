@@ -38,6 +38,8 @@
   let currentUser = null;
   let onStateChangeCallback = null;
   let savingInProgress = false;
+  let saveDebounceTimer = null;
+  let syncStatus = 'idle'; // 'idle' | 'saving' | 'saved' | 'error' | 'offline'
 
   // --- Auth ---
   function signIn() {
@@ -85,13 +87,43 @@
       .collection('calendars').doc(currentCalendar);
   }
 
+  function setSyncStatus(status) {
+    syncStatus = status;
+    renderSyncStatus();
+  }
+
+  function renderSyncStatus() {
+    var el = document.getElementById('syncStatus');
+    if (!el) return;
+    if (!currentUser) { el.innerHTML = ''; return; }
+
+    var html = '';
+    if (syncStatus === 'saving') {
+      html = '<span class="sync-indicator sync-saving">' +
+        '<span class="sync-spinner"></span> Salvando…</span>';
+    } else if (syncStatus === 'saved') {
+      html = '<span class="sync-indicator sync-saved">' +
+        '<span class="sync-dot sync-dot-ok"></span> Salvo</span>';
+    } else if (syncStatus === 'error') {
+      html = '<span class="sync-indicator sync-error">' +
+        '<span class="sync-dot sync-dot-err"></span> Erro ao salvar</span>';
+    } else if (syncStatus === 'offline') {
+      html = '<span class="sync-indicator sync-offline">' +
+        '<span class="sync-dot sync-dot-off"></span> Offline</span>';
+    }
+    el.innerHTML = html;
+  }
+
   function saveToFirestore(state) {
     if (!currentUser) return Promise.resolve();
     savingInProgress = true;
+    setSyncStatus('saving');
     return getDocRef().set(state, { merge: true }).then(function () {
       savingInProgress = false;
+      setSyncStatus('saved');
     }).catch(function (err) {
       savingInProgress = false;
+      setSyncStatus('error');
       console.error('Firestore save error:', err);
     });
   }
@@ -143,11 +175,13 @@
         : '';
       container.innerHTML =
         '<div class="auth-bar">' +
+          '<span id="syncStatus"></span>' +
           photo +
           '<span class="auth-name">' + (currentUser.displayName || currentUser.email) + '</span>' +
           '<button class="auth-btn auth-logout" id="btnSignOut" title="Sair">Sair</button>' +
         '</div>';
       document.getElementById('btnSignOut').addEventListener('click', signOut);
+      renderSyncStatus();
     } else {
       container.innerHTML =
         '<div class="auth-bar">' +
@@ -336,7 +370,12 @@
 
     save: function (state) {
       localStorage.setItem('bigasscalendar_2026_' + currentCalendar, JSON.stringify(state));
-      saveToFirestore(state);
+      // Debounce Firestore writes (500ms) to avoid spamming on rapid input
+      if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+      setSyncStatus('saving');
+      saveDebounceTimer = setTimeout(function () {
+        saveToFirestore(state);
+      }, 500);
     },
 
     load: function () {
@@ -444,6 +483,14 @@
       stopListening();
       renderCalendarSwitcher();
     }
+  });
+
+  // Network status
+  window.addEventListener('online', function () {
+    if (syncStatus === 'offline') setSyncStatus('saved');
+  });
+  window.addEventListener('offline', function () {
+    setSyncStatus('offline');
   });
 
 })();
