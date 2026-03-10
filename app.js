@@ -2226,7 +2226,7 @@
     if (h >= DAY_START_HOUR && h <= DAY_END_HOUR) {
       var totalMinutes = (h - DAY_START_HOUR) * 60 + m;
       var totalRange = (DAY_END_HOUR - DAY_START_HOUR + 1) * 60;
-      var rowHeight = 36; // matches CSS td height
+      var rowHeight = 40; // matches CSS td height
       var headerHeight = 30; // sticky header
       var topOffset = headerHeight + (totalMinutes / 60) * rowHeight;
       nowLine.style.top = topOffset + 'px';
