@@ -329,17 +329,17 @@
           if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
           return s;
         }
+        // BACSync present but no cached data — return default.
+        // Cloud data will arrive via listen callback and update the UI.
+        return defaultState();
       }
-      // Fallback to legacy localStorage (only when NOT logged in,
-      // to prevent leaking another account's data)
-      if (!window.BACSync || !window.BACSync.isLoggedIn()) {
-        const legacyRaw = localStorage.getItem(STORAGE_KEY_LEGACY);
-        if (legacyRaw) {
-          const parsed = JSON.parse(legacyRaw);
-          const s = Object.assign(defaultState(), parsed);
-          if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
-          return s;
-        }
+      // No BACSync at all — use legacy localStorage (offline/standalone)
+      const legacyRaw = localStorage.getItem(STORAGE_KEY_LEGACY);
+      if (legacyRaw) {
+        const parsed = JSON.parse(legacyRaw);
+        const s = Object.assign(defaultState(), parsed);
+        if (s.labels && s.labels.length > 0) s.labels = migrateLabels(s.labels);
+        return s;
       }
     } catch (e) { /* ignore */ }
     return defaultState();

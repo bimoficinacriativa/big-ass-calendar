@@ -413,9 +413,10 @@
         if (cloudData) {
           localStorage.setItem(storageKey(), JSON.stringify(cloudData));
           if (onStateChangeCallback) onStateChangeCallback(cloudData);
+        } else if (onStateChangeCallback) {
+          // New user with no cloud data: reset UI to clean default state
+          onStateChangeCallback(null);
         }
-        // New users with no cloud data: do NOT upload localStorage
-        // (localStorage may contain another account's data)
 
         if (onStateChangeCallback) {
           listenToFirestore(function (data) {
