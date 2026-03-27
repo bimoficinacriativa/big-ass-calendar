@@ -3869,6 +3869,8 @@ body {
   z-index: 600;
   width: 340px;
   max-width: calc(100vw - 32px);
+  max-height: 60vh;
+  overflow-y: auto;
   background: var(--modal-bg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -3912,6 +3914,7 @@ body {
   color: var(--text);
   line-height: 1.65;
   opacity: 0.85;
+  white-space: pre-wrap;
 }
 
 /* --- Mobile Info Sheet --- */
@@ -3958,6 +3961,7 @@ body {
 .info-sheet .info-popover-text {
   font-size: 15px;
   line-height: 1.7;
+  white-space: pre-wrap;
 }
 
 /* Hide popover arrow when not needed */

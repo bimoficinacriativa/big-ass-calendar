@@ -2345,6 +2345,10 @@
       eveningScript: {
         title: 'Evening Script',
         text: '"O dia começa na noite anterior." Ritual diário de Jesse Itzler: antes de dormir, monte o roteiro completo do dia seguinte — hora por hora. Saber exatamente o que vai fazer evita "improvisar" e perder energia com decisões. "The competition is too good to wake up and wing it." Dica: comece com os blocos fixos (filhos, treino, trabalho) e preencha os espaços.'
+      },
+      upBeforeEnemy: {
+        title: 'Acorde Antes do Inimigo',
+        text: 'Acordar cedo não é sobre ser "pessoa matutina." É sobre vencer a primeira decisão do dia. Se você controla a manhã, controla o dia.\n\n1. HORÁRIO FIXO — Escolha uma hora exata. Não "por volta das 5h." A mesma hora todo dia, inclusive fins de semana. Consistência treina seu corpo mais rápido que motivação.\n\n2. PREPARE NA NOITE ANTERIOR — Manhãs são decididas na noite anterior. Separe roupa, deixe café ou água pronta, decida sua primeira tarefa. Sem decisões = sem resistência.\n\n3. ALARME LONGE DA CAMA — Se você consegue apertar soneca, vai apertar. Coloque o alarme do outro lado do quarto, no banheiro, em qualquer lugar que te force a levantar. Ficar de pé quebra o ciclo.\n\n4. ZERO SONECA — Soneca é mentira. Não dá descanso, dá arrependimento. Apertar soneca é começar o dia desistindo.\n\n5. LUZ NOS OLHOS — Luz diz ao cérebro que é hora de agir. Acenda as luzes, abra as cortinas, saia para fora se possível. Quarto escuro mantém você cansado.\n\n6. MOVA O CORPO — Não precisa de treino completo. Precisa de movimento. Flexões, agachamentos, uma caminhada curta, alongamento. Movimento liga o interruptor.'
       }
     },
     'en': {
@@ -2395,6 +2399,10 @@
       eveningScript: {
         title: 'Evening Script',
         text: '"The day starts the night before." Jesse Itzler\'s daily ritual: before bed, build the complete script for the next day — hour by hour. Knowing exactly what you\'ll do prevents "winging it" and losing energy on decisions. "The competition is too good to wake up and wing it." Tip: start with the fixed blocks (kids, workout, work) and fill in the gaps.'
+      },
+      upBeforeEnemy: {
+        title: 'Up Before the Enemy',
+        text: 'Waking up early isn\'t about being a "morning person." It\'s about winning the first decision of the day. If you control the morning, you control the day.\n\n1. FIXED WAKE-UP TIME — Pick a specific time. Not "around 5." The same time every day, weekends included. Consistency trains your body faster than motivation ever will.\n\n2. PREPARE THE NIGHT BEFORE — Mornings are decided the night before. Lay out clothes, set coffee or water, decide your first task. Remove decisions, remove resistance.\n\n3. ALARM OUT OF REACH — If you can hit snooze, you will. Put your alarm across the room, in the bathroom, somewhere that forces you to stand up. Standing up breaks the cycle.\n\n4. NO SNOOZE. EVER — Snooze is a lie. It doesn\'t give you rest. It gives you regret. The first time you hit snooze, you start the day by quitting.\n\n5. LIGHT IN YOUR EYES — Light tells your brain it\'s go-time. Turn on lights, open blinds, step outside if possible. Dark rooms keep you tired.\n\n6. MOVE YOUR BODY — You don\'t need a workout. You need movement. Push-ups, air squats, a short walk, stretching. Movement flips the switch.'
       }
     }
   };
