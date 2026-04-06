@@ -578,6 +578,38 @@ body {
   flex-wrap: wrap;
 }
 
+/* Calendar Editor Modal */
+.cal-editor-field { display: flex; flex-direction: column; gap: 4px; }
+.cal-editor-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.cal-editor-input {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; background: var(--cell-bg); color: var(--text);
+  font-family: inherit; outline: none; transition: border-color 0.15s;
+}
+.cal-editor-input:focus { border-color: var(--accent, #0094D6); }
+.cal-editor-emoji { width: 64px; font-size: 18px; text-align: center; }
+.cal-editor-actions {
+  display: flex; gap: 8px; align-items: center; margin-top: 4px;
+}
+.cal-editor-btn {
+  padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  border: none; transition: opacity 0.15s;
+}
+.cal-editor-btn:hover { opacity: 0.85; }
+.cal-editor-cancel {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+}
+.cal-editor-save {
+  background: var(--accent, #0094D6); color: #fff; font-weight: 700;
+}
+.cal-editor-delete {
+  background: transparent; border: 1px solid #e53935; color: #e53935;
+}
+.cal-editor-delete-confirm {
+  background: #e53935; color: #fff; border-color: #e53935;
+}
+
 /* ============================================
    TOOLBAR
    ============================================ */

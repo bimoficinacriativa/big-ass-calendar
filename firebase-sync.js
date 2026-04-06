@@ -225,7 +225,7 @@
     var html = '';
     calendars.forEach(function (cal) {
       var active = cal.id === currentCalendar ? ' active' : '';
-      html += '<button class="cal-switch-btn' + active + '" data-cal="' + cal.id + '" title="Duplo clique para editar">' +
+      html += '<button class="cal-switch-btn' + active + '" data-cal="' + cal.id + '" title="Clique para editar">' +
         cal.emoji + ' ' + cal.label + '</button>';
     });
     var addLabel = calendars.length === 0 ? '+ Novo Calendário' : '+';
@@ -257,61 +257,118 @@
     });
   }
 
-  // --- Calendar Editor (inline prompt) ---
+  // --- Calendar Editor (modal) ---
   function showCalendarEditor(cal) {
     var isNew = !cal;
 
-    if (isNew) {
-      // --- Create new ---
-      var newLabel = prompt('Novo Calendário\n\nNome:');
-      if (newLabel === null) return;
-      newLabel = newLabel.trim();
-      if (!newLabel) return;
+    // Remove any existing editor modal
+    var existing = document.getElementById('calEditorOverlay');
+    if (existing) existing.remove();
 
-      var newEmoji = prompt('Emoji (cole um emoji):', '\uD83D\uDCC5');
-      if (newEmoji === null) newEmoji = '\uD83D\uDCC5';
-      newEmoji = newEmoji.trim() || '\uD83D\uDCC5';
+    var overlay = document.createElement('div');
+    overlay.id = 'calEditorOverlay';
+    overlay.className = 'modal-overlay';
 
-      var newCal = { id: generateId(), label: newLabel, emoji: newEmoji };
-      calendars.push(newCal);
-      saveCalendarsToProfile().then(function () {
-        stopListening();
-        setCalendar(newCal.id);
-        renderCalendarSwitcher();
-        if (window.BACSync && window.BACSync._onCalendarSwitch) {
-          window.BACSync._onCalendarSwitch();
+    var modal = document.createElement('div');
+    modal.className = 'modal modal-sm';
+
+    var canDelete = !isNew && calendars.length > 1;
+    var title = isNew ? 'Novo Calendário' : cal.emoji + ' ' + cal.label;
+    var saveLabel = isNew ? 'Criar' : 'Salvar';
+    var nameVal = isNew ? '' : cal.label.replace(/"/g, '&quot;');
+    var emojiVal = isNew ? '📅' : cal.emoji;
+
+    var deleteHtml = canDelete
+      ? '<button id="calEditorDelete" class="cal-editor-btn cal-editor-delete">Excluir</button>'
+      : '';
+
+    modal.innerHTML =
+      '<div class="modal-header">' +
+        '<span class="modal-title">' + title + '</span>' +
+        '<button class="modal-close" id="calEditorClose">&times;</button>' +
+      '</div>' +
+      '<div class="modal-body">' +
+        '<div class="cal-editor-field">' +
+          '<label class="cal-editor-label">Nome</label>' +
+          '<input type="text" id="calEditorName" class="cal-editor-input" value="' + nameVal + '" placeholder="Ex: Trabalho">' +
+        '</div>' +
+        '<div class="cal-editor-field">' +
+          '<label class="cal-editor-label">Emoji</label>' +
+          '<input type="text" id="calEditorEmoji" class="cal-editor-input cal-editor-emoji" value="' + emojiVal + '">' +
+        '</div>' +
+        '<div class="cal-editor-actions">' +
+          deleteHtml +
+          '<span style="flex:1"></span>' +
+          '<button id="calEditorCancel" class="cal-editor-btn cal-editor-cancel">Cancelar</button>' +
+          '<button id="calEditorSave" class="cal-editor-btn cal-editor-save">' + saveLabel + '</button>' +
+        '</div>' +
+      '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(function () {
+      document.getElementById('calEditorName').focus();
+    });
+
+    function closeEditor() {
+      modal.classList.add('closing');
+      overlay.classList.add('closing');
+      setTimeout(function () { overlay.remove(); }, 200);
+    }
+
+    document.getElementById('calEditorClose').addEventListener('click', closeEditor);
+    document.getElementById('calEditorCancel').addEventListener('click', closeEditor);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeEditor();
+    });
+
+    // Save
+    document.getElementById('calEditorSave').addEventListener('click', function () {
+      var name = document.getElementById('calEditorName').value.trim();
+      var emoji = document.getElementById('calEditorEmoji').value.trim() || '📅';
+      if (!name) return;
+
+      if (isNew) {
+        var newCal = { id: generateId(), label: name, emoji: emoji };
+        calendars.push(newCal);
+        saveCalendarsToProfile().then(function () {
+          stopListening();
+          setCalendar(newCal.id);
+          renderCalendarSwitcher();
+          if (window.BACSync && window.BACSync._onCalendarSwitch) {
+            window.BACSync._onCalendarSwitch();
+          }
+        });
+      } else {
+        cal.label = name;
+        cal.emoji = emoji;
+        saveCalendarsToProfile().then(function () {
+          renderCalendarSwitcher();
+        });
+      }
+      closeEditor();
+    });
+
+    // Enter key saves
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        document.getElementById('calEditorSave').click();
+      } else if (e.key === 'Escape') {
+        closeEditor();
+      }
+    });
+
+    // Delete (two-click confirmation)
+    var delBtn = document.getElementById('calEditorDelete');
+    if (delBtn) {
+      delBtn.addEventListener('click', function () {
+        if (!this.dataset.confirmed) {
+          this.dataset.confirmed = 'true';
+          this.textContent = 'Confirmar exclusão?';
+          this.classList.add('cal-editor-delete-confirm');
+          return;
         }
-      });
-    } else {
-      // --- Edit existing: choose action ---
-      var canDelete = calendars.length > 1;
-      var options = 'O que deseja fazer com "' + cal.emoji + ' ' + cal.label + '"?\n\n';
-      options += '1 — Renomear\n';
-      options += '2 — Trocar emoji\n';
-      if (canDelete) options += '3 — Excluir\n';
-      options += '\nDigite o número:';
-
-      var choice = prompt(options);
-      if (choice === null) return;
-      choice = choice.trim();
-
-      if (choice === '1') {
-        var renamed = prompt('Novo nome:', cal.label);
-        if (renamed === null || !renamed.trim()) return;
-        cal.label = renamed.trim();
-        saveCalendarsToProfile().then(function () {
-          renderCalendarSwitcher();
-        });
-      } else if (choice === '2') {
-        var newEm = prompt('Novo emoji:', cal.emoji);
-        if (newEm === null || !newEm.trim()) return;
-        cal.emoji = newEm.trim();
-        saveCalendarsToProfile().then(function () {
-          renderCalendarSwitcher();
-        });
-      } else if (choice === '3' && canDelete) {
-        var sure = confirm('Excluir "' + cal.label + '"?\nOs dados desse calendário serão perdidos.');
-        if (!sure) return;
         calendars = calendars.filter(function (c) { return c.id !== cal.id; });
         if (currentUser) {
           db.collection('users').doc(currentUser.uid)
@@ -327,7 +384,8 @@
         saveCalendarsToProfile().then(function () {
           renderCalendarSwitcher();
         });
-      }
+        closeEditor();
+      });
     }
   }
 
