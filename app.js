@@ -2746,8 +2746,10 @@
 
   // --- Event Bindings ---
   function bindEvents() {
-    // Zoom buttons
-    document.querySelectorAll('.zoom-btn').forEach(btn => {
+    // Zoom buttons (#bdToggle shares the .zoom-btn class for styling only —
+    // without this guard it fires setZoom(undefined) and kicks the user
+    // back to the year view)
+    document.querySelectorAll('.zoom-btn[data-zoom]').forEach(btn => {
       btn.addEventListener('click', () => setZoom(btn.dataset.zoom));
     });
     document.getElementById('monthPrev').addEventListener('click', zoomMonthPrev);
