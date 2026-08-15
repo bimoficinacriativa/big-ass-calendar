@@ -1,5 +1,14 @@
 .DS_Store
-02 MARCOS/
-backups/
-docs/reference/itzler-notes/
-prompt-claude-code.md
+
+# Conteúdo pessoal do Marcos (não versionado)
+01-plano-marcos/
+02-geradores/
+03-dados/
+
+# Referência/legado (não versionado)
+_referencia/backups-ui/
+_referencia/itzler-notes/
+_referencia/prompt-claude-code.md
+
+# Estado local
+estado/cursor.json
