@@ -1431,6 +1431,35 @@ body {
   opacity: 0.5;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 2px;
+}
+
+.wv-entry-time:hover {
+  opacity: 1;
+  background: var(--header-bg);
+  text-decoration: underline;
+}
+
+.wv-entry-time.full {
+  opacity: 1;
+  color: #E53935;
+  background: rgba(229, 57, 53, 0.15);
+}
+
+.wv-entry-time-input {
+  flex-shrink: 0;
+  width: 78px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--cell-bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 2px;
+  outline: none;
 }
 
 .wv-entry .day-cell-input {
@@ -3572,6 +3601,7 @@ body {
   .wv-period-hours { font-size: 13px; }
   .wv-entry { padding: 6px 8px; gap: 8px; }
   .wv-entry-time { font-size: 14px; }
+  .wv-entry-time-input { font-size: 14px; width: 104px; }
   .wv-entry .day-cell-input { font-size: 19px; }
   .wv-entry .day-done-toggle { width: 18px; height: 18px; }
   .wv-entry.done .day-done-toggle::after { left: 4px; top: 2px; width: 5px; height: 9px; }

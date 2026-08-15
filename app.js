@@ -107,6 +107,8 @@
       wvAfternoon: 'TARDE',
       wvEvening: 'NOITE',
       wvAddPh: '+ Adicionar...',
+      wvAddHint: 'Comece com a hora pra agendar: "14h Gravar aula" ou "9h30 Revisão"',
+      wvChangeTime: 'Mudar horário',
     },
     'en': {
       months: ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],
@@ -194,6 +196,8 @@
       wvAfternoon: 'AFTERNOON',
       wvEvening: 'EVENING',
       wvAddPh: '+ Add...',
+      wvAddHint: 'Start with a time (24h) to schedule: "14:30 Record lesson"',
+      wvChangeTime: 'Change time',
     }
   };
 
@@ -1749,8 +1753,14 @@
     if (pendingAdd && pendingAdd.classList && pendingAdd.classList.contains('wv-period-add') &&
         pendingAdd.value.trim() && pendingAdd.dataset.date) {
       var pendingPeriod = WV_PERIODS.find(function(p) { return p.key === pendingAdd.dataset.period; });
-      var pendingSlot = pendingPeriod && findFreePeriodSlot(pendingAdd.dataset.date, pendingPeriod);
-      if (pendingSlot) saveTimeboxingSchedule(pendingAdd.dataset.date, pendingSlot, pendingAdd.value.trim(), '', false);
+      var pending = pendingPeriod &&
+        resolveQuickAddSlot(pendingAdd.dataset.date, pendingAdd.value.trim(), pendingPeriod);
+      if (pending && pending.slot) {
+        saveTimeboxingSchedule(pendingAdd.dataset.date, pending.slot, pending.text, '', false);
+        // Detaching a focused input still fires blur — clear it so the blur
+        // handler doesn't commit the same draft a second time
+        pendingAdd.value = '';
+      }
     }
 
     const grid = document.getElementById('weekGrid');
@@ -1852,10 +1862,11 @@
   }
 
   // --- WEEK VIEW PERIODS (manhã / tarde / noite) ---
+  // anchor: default hour for quick-added entries without an explicit time
   var WV_PERIODS = [
-    { key: 'morning',   i18n: 'wvMorning',   start: 5,  end: 11 },
-    { key: 'afternoon', i18n: 'wvAfternoon', start: 12, end: 17 },
-    { key: 'evening',   i18n: 'wvEvening',   start: 18, end: 23 }
+    { key: 'morning',   i18n: 'wvMorning',   start: 5,  end: 11, anchor: 8 },
+    { key: 'afternoon', i18n: 'wvAfternoon', start: 12, end: 17, anchor: 14 },
+    { key: 'evening',   i18n: 'wvEvening',   start: 18, end: 23, anchor: 19 }
   ];
 
   function periodSlotKeys(period) {
@@ -1907,6 +1918,7 @@
       add.className = 'wv-period-add';
       add.maxLength = 60;
       add.placeholder = t('wvAddPh');
+      add.title = t('wvAddHint');
       add.dataset.date = dateStr;
       add.dataset.period = period.key;
       add.addEventListener('keydown', function(e) {
@@ -1929,26 +1941,90 @@
     return wrap;
   }
 
+  function isFreeSlot(dayData, key) {
+    var e = dayData.schedule[key];
+    return !e || (!e.text && !e.category);
+  }
+
+  // Free slot inside the period, searching from the anchor hour outward
+  // (anchor..end first, then start..anchor) so defaults land at human hours
   function findFreePeriodSlot(dateStr, period) {
     var dayData = getTimeboxingDay(dateStr);
-    return periodSlotKeys(period).find(function(k) {
-      var e = dayData.schedule[k];
-      return !e || (!e.text && !e.category);
-    });
+    var keys = periodSlotKeys(period);
+    var startIdx = keys.indexOf(period.anchor + '_00');
+    if (startIdx < 0) startIdx = 0;
+    var ordered = keys.slice(startIdx).concat(keys.slice(0, startIdx));
+    return ordered.find(function(k) { return isFreeSlot(dayData, k); });
+  }
+
+  function allDaySlotKeys() {
+    var keys = [];
+    for (var h = DAY_START_HOUR; h <= DAY_END_HOUR; h++) {
+      keys.push(h + '_00');
+      keys.push(h + '_30');
+    }
+    return keys;
+  }
+
+  // Free slot for an explicit hour: the slot itself, then forward through the
+  // day, then backward toward its start. excludeKey counts as free (the slot
+  // an entry is being moved out of).
+  function findFreeSlotFromHour(dateStr, hour, half, excludeKey) {
+    var dayData = getTimeboxingDay(dateStr);
+    var keys = allDaySlotKeys();
+    var idx = keys.indexOf(hour + '_' + half);
+    if (idx < 0) return null;
+    var ordered = keys.slice(idx).concat(keys.slice(0, idx).reverse());
+    return ordered.find(function(k) {
+      return k === excludeKey || isFreeSlot(dayData, k);
+    }) || null;
+  }
+
+  // Where a quick-add line lands: explicit "14h Texto" prefix wins,
+  // otherwise the period's anchor hour
+  function resolveQuickAddSlot(dateStr, rawText, period) {
+    var parsed = parseQuickAddTime(rawText);
+    if (parsed) {
+      return { slot: findFreeSlotFromHour(dateStr, parsed.hour, parsed.half), text: parsed.text };
+    }
+    return { slot: findFreePeriodSlot(dateStr, period), text: rawText };
+  }
+
+  // "14h Gravar", "14:30 Gravar", "7h30 Tênis" → explicit time + text.
+  // Plain numbers without h/: ("3 aulas") are NOT times.
+  function parseQuickAddTime(text) {
+    var m = text.match(/^(\d{1,2})(?:h|:)([0-5]\d)?\s+(.+)$/i);
+    if (!m) return null;
+    var hour = parseInt(m[1], 10);
+    if (hour < DAY_START_HOUR || hour > DAY_END_HOUR) return null;
+    return { hour: hour, half: (m[2] && parseInt(m[2], 10) >= 30) ? '30' : '00', text: m[3] };
+  }
+
+  function keyInPeriod(key, period) {
+    var h = parseInt(key, 10);
+    return h >= period.start && h <= period.end;
   }
 
   function commitWeekQuickAdd(input, list, dateStr, period) {
     var text = input.value.trim();
     if (!text) return;
-    var slot = findFreePeriodSlot(dateStr, period);
+
+    var resolved = resolveQuickAddSlot(dateStr, text, period);
+    var slot = resolved.slot;
     if (!slot) {
-      // all half-hour slots of this period are taken
       input.classList.add('full');
       setTimeout(function() { input.classList.remove('full'); }, 700);
       return;
     }
-    saveTimeboxingSchedule(dateStr, slot, text, '', false);
+    saveTimeboxingSchedule(dateStr, slot, resolved.text, '', false);
     input.value = '';
+
+    if (!keyInPeriod(slot, period)) {
+      // Explicit time landed in another period — refresh only that list, since
+      // a full rebuild here would swallow the click that triggered this blur
+      refreshWeekColumnPeriods(list, dateStr, [slot]);
+      return;
+    }
     // Insert only the new row — a full list rebuild between mousedown and
     // mouseup would swallow the click that triggered this commit via blur
     var entry = getTimeboxingDay(dateStr).schedule[slot];
@@ -1959,6 +2035,38 @@
       return order.indexOf(r.dataset.key) > idx;
     });
     list.insertBefore(row, next || null);
+  }
+
+  // Re-render only the period lists a set of slots belongs to, in the column
+  // holding refEl. Rebuilding the whole grid instead would destroy the element
+  // under an in-flight click (mousedown fires blur, mouseup finds nothing).
+  function refreshWeekColumnPeriods(refEl, dateStr, keys) {
+    var col = refEl && refEl.closest && refEl.closest('.wv-column');
+    if (!col) { renderWeekView(zoomWeekStart); return; }
+    var lists = col.querySelectorAll('.wv-period-list');
+    var done = {};
+    keys.forEach(function(k) {
+      var idx = WV_PERIODS.findIndex(function(p) { return keyInPeriod(k, p); });
+      if (idx < 0 || done[idx] || !lists[idx]) return;
+      done[idx] = true;
+      renderWeekPeriodList(lists[idx], dateStr, WV_PERIODS[idx]);
+    });
+  }
+
+  // Move an entry to a new half-hour slot (nearest free one if taken).
+  // Returns 'moved' | 'unchanged' | 'full' | 'gone' so the caller can react.
+  function moveWeekEntry(dateStr, fromKey, hour, half, rowEl) {
+    var dayData = getTimeboxingDay(dateStr);
+    var entry = dayData.schedule[fromKey];
+    if (!entry) return 'gone';
+    var target = findFreeSlotFromHour(dateStr, hour, half, fromKey);
+    if (!target) return 'full';
+    if (target === fromKey) return 'unchanged';
+    dayData.schedule[target] = entry;
+    delete dayData.schedule[fromKey];
+    saveState();
+    refreshWeekColumnPeriods(rowEl, dateStr, [fromKey, target]);
+    return 'moved';
   }
 
   function renderWeekPeriodList(list, dateStr, period) {
@@ -1997,7 +2105,45 @@
     var time = document.createElement('span');
     time.className = 'wv-entry-time';
     var parts = key.split('_');
-    time.textContent = String(parts[0]).padStart(2, '0') + ':' + parts[1];
+    var timeValue = String(parts[0]).padStart(2, '0') + ':' + parts[1];
+    time.textContent = timeValue;
+    time.title = t('wvChangeTime');
+    time.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var picker = document.createElement('input');
+      picker.type = 'time';
+      picker.className = 'wv-entry-time-input';
+      picker.value = timeValue;
+      picker.step = 1800;
+      picker.min = String(DAY_START_HOUR).padStart(2, '0') + ':00';
+      picker.max = String(DAY_END_HOUR).padStart(2, '0') + ':30';
+      time.replaceWith(picker);
+      picker.focus();
+      var finished = false;
+      var commit = function() {
+        if (finished) return;
+        finished = true;
+        var v = picker.value;
+        var hh = v ? parseInt(v.slice(0, 2), 10) : NaN;
+        if (!v || !(hh >= DAY_START_HOUR && hh <= DAY_END_HOUR)) {
+          picker.replaceWith(time);
+          return;
+        }
+        var moved = moveWeekEntry(dateStr, key, hh,
+          parseInt(v.slice(3, 5), 10) >= 30 ? '30' : '00', row);
+        if (moved === 'moved') return; // the row was re-rendered away
+        picker.replaceWith(time);
+        if (moved === 'full') {
+          time.classList.add('full');
+          setTimeout(function() { time.classList.remove('full'); }, 700);
+        }
+      };
+      picker.addEventListener('blur', commit);
+      picker.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+        if (ev.key === 'Escape') { finished = true; picker.replaceWith(time); }
+      });
+    });
     row.appendChild(time);
 
     var input = document.createElement('input');
