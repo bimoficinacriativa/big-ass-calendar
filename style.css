@@ -1255,6 +1255,9 @@ body {
   flex-shrink: 0;
 }
 
+.wv-col-header.clickable { cursor: pointer; }
+.wv-col-header.clickable:hover { background: var(--hover-bg); }
+
 .wv-col-dow {
   font-size: clamp(9px, 0.9vw, 14px);
   font-weight: 700;
@@ -1273,6 +1276,7 @@ body {
 
 .wv-col-body {
   flex: 1;
+  min-height: 0;
   padding: 6px;
   overflow-y: auto;
   display: flex;
@@ -1322,6 +1326,208 @@ body {
 }
 
 .wv-label:hover { opacity: 0.85; }
+
+/* ============================================
+   WEEK VIEW — Period sections (manhã / tarde / noite)
+   ============================================ */
+
+.wv-periods {
+  /* basis auto: grows with content so the col-body scrolls instead of
+     entries painting over the next section */
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+}
+
+.wv-period {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-top: 2px solid var(--border);
+  padding-top: 2px;
+}
+
+.wv-period.now {
+  background: linear-gradient(180deg, rgba(255, 97, 46, 0.08), transparent 70%);
+  border-top-color: #FF612E;
+}
+
+.wv-period-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.wv-period-name {
+  font-size: clamp(9px, 0.8vw, 12px);
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--title);
+  opacity: 0.75;
+}
+
+.wv-period-hours {
+  font-size: clamp(8px, 0.7vw, 10px);
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.35;
+}
+
+.wv-period-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wv-entry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+}
+
+.wv-entry .day-done-toggle {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: 13px;
+  height: 13px;
+  opacity: 0.2;
+}
+
+.wv-entry:hover .day-done-toggle { opacity: 0.5; }
+
+.wv-entry.done .day-done-toggle {
+  opacity: 1;
+  background: var(--btn-bg, #0094D6);
+  border-color: var(--btn-bg, #0094D6);
+}
+
+.wv-entry.done .day-done-toggle::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.wv-entry-time {
+  font-size: clamp(9px, 0.75vw, 11px);
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.5;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.wv-entry .day-cell-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: clamp(11px, 0.85vw, 14px);
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  padding: 0;
+}
+
+.wv-entry.done .day-cell-input {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+
+.wv-entry .day-cat-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.2s;
+  box-sizing: border-box;
+}
+
+.wv-entry:hover .day-cat-dot { opacity: 0.4; }
+
+.wv-entry .day-cat-dot.has-cat {
+  opacity: 1;
+  border-color: transparent;
+}
+
+.wv-entry .day-cat-dot.has-cat:hover { transform: scale(1.3); }
+
+/* Category tints — same palette as the day view */
+.wv-entry[data-cat="adventure"]  { background: linear-gradient(90deg, rgba(0, 148, 214, 0.2) 0%, rgba(0, 148, 214, 0.05) 100%); }
+.wv-entry[data-cat="marriage"]   { background: linear-gradient(90deg, rgba(236, 64, 122, 0.2) 0%, rgba(236, 64, 122, 0.05) 100%); }
+.wv-entry[data-cat="health"]     { background: linear-gradient(90deg, rgba(124, 179, 66, 0.2) 0%, rgba(124, 179, 66, 0.05) 100%); }
+.wv-entry[data-cat="kids"]       { background: linear-gradient(90deg, rgba(151, 145, 241, 0.2) 0%, rgba(151, 145, 241, 0.05) 100%); }
+.wv-entry[data-cat="business"]   { background: linear-gradient(90deg, rgba(255, 97, 46, 0.2) 0%, rgba(255, 97, 46, 0.05) 100%); }
+.wv-entry[data-cat="personal"]   { background: linear-gradient(90deg, rgba(253, 216, 53, 0.22) 0%, rgba(253, 216, 53, 0.05) 100%); }
+.wv-entry[data-cat="family"]     { background: linear-gradient(90deg, rgba(229, 57, 53, 0.2) 0%, rgba(229, 57, 53, 0.05) 100%); }
+.wv-entry[data-cat="finance"]    { background: linear-gradient(90deg, rgba(0, 188, 212, 0.2) 0%, rgba(0, 188, 212, 0.05) 100%); }
+
+.wv-entry[data-cat="adventure"]  .day-cat-dot { background: #0094D6; }
+.wv-entry[data-cat="marriage"]   .day-cat-dot { background: #EC407A; }
+.wv-entry[data-cat="health"]     .day-cat-dot { background: #7CB342; }
+.wv-entry[data-cat="kids"]       .day-cat-dot { background: #9791F1; }
+.wv-entry[data-cat="business"]   .day-cat-dot { background: #FF612E; }
+.wv-entry[data-cat="personal"]   .day-cat-dot { background: #FDD835; }
+.wv-entry[data-cat="family"]     .day-cat-dot { background: #E53935; }
+.wv-entry[data-cat="finance"]    .day-cat-dot { background: #00BCD4; }
+
+.wv-period-add {
+  flex-shrink: 0;
+  margin: 3px 2px 5px;
+  padding: 3px 5px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: transparent;
+  font-family: inherit;
+  font-size: clamp(10px, 0.8vw, 13px);
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.wv-period-add:hover { opacity: 0.7; }
+
+.wv-period-add:focus {
+  opacity: 1;
+  border-style: solid;
+}
+
+.wv-period-add::placeholder { color: var(--text); opacity: 0.7; }
+
+.wv-period-add.full {
+  border-color: #E53935;
+  color: #E53935;
+  opacity: 1;
+}
+
+/* Touch devices have no hover — keep the category dot findable */
+@media (hover: none) {
+  .wv-entry .day-cat-dot { opacity: 0.35; }
+}
 
 /* ============================================
    DAY VIEW (Timeboxing) — Athletic Training Board
@@ -3362,6 +3568,15 @@ body {
   .wv-col-num { font-size: 48px; }
   .wv-label { font-size: 18px; }
   .wv-col-body .label-block { font-size: 18px; min-height: 80px; max-height: 180px; padding: 12px 16px; border-radius: 10px; }
+  .wv-period-name { font-size: 16px; }
+  .wv-period-hours { font-size: 13px; }
+  .wv-entry { padding: 6px 8px; gap: 8px; }
+  .wv-entry-time { font-size: 14px; }
+  .wv-entry .day-cell-input { font-size: 19px; }
+  .wv-entry .day-done-toggle { width: 18px; height: 18px; }
+  .wv-entry.done .day-done-toggle::after { left: 4px; top: 2px; width: 5px; height: 9px; }
+  .wv-entry .day-cat-dot { width: 14px; height: 14px; }
+  .wv-period-add { font-size: 17px; padding: 6px 8px; }
 
   /* Label modal TV OLED */
   .modal-label { width: 520px; max-width: 520px; padding: 36px; border-radius: 20px; }

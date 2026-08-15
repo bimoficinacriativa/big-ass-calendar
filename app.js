@@ -103,6 +103,10 @@
       weekNumber: 'Semana',
       noReminders: 'Sem lembretes',
       noTasks: 'Sem tarefas',
+      wvMorning: 'MANHÃ',
+      wvAfternoon: 'TARDE',
+      wvEvening: 'NOITE',
+      wvAddPh: '+ Adicionar...',
     },
     'en': {
       months: ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],
@@ -186,6 +190,10 @@
       weekNumber: 'Week',
       noReminders: 'No reminders',
       noTasks: 'No tasks',
+      wvMorning: 'MORNING',
+      wvAfternoon: 'AFTERNOON',
+      wvEvening: 'EVENING',
+      wvAddPh: '+ Add...',
     }
   };
 
@@ -360,7 +368,7 @@
     renderGrid();
     updateDashboard();
     if (typeof renderMonthView === 'function') renderMonthView();
-    if (typeof renderWeekView === 'function') renderWeekView();
+    if (zoomMode === 'week' && typeof renderWeekView === 'function') renderWeekView();
     if (zoomMode === 'day' && zoomDayDate) renderDayView(zoomDayDate);
   }
 
@@ -1732,6 +1740,19 @@
 
   // --- WEEK VIEW RENDERER ---
   function renderWeekView(startDate) {
+    // reloadFromState/refreshActiveView call without args — fall back to current week
+    if (!startDate) startDate = zoomWeekStart || getWeekStartForDate(new Date());
+
+    // A rebuild would silently drop a draft being typed in a quick-add
+    // (e.g. remote sync mid-typing) — commit it first
+    var pendingAdd = document.activeElement;
+    if (pendingAdd && pendingAdd.classList && pendingAdd.classList.contains('wv-period-add') &&
+        pendingAdd.value.trim() && pendingAdd.dataset.date) {
+      var pendingPeriod = WV_PERIODS.find(function(p) { return p.key === pendingAdd.dataset.period; });
+      var pendingSlot = pendingPeriod && findFreePeriodSlot(pendingAdd.dataset.date, pendingPeriod);
+      if (pendingSlot) saveTimeboxingSchedule(pendingAdd.dataset.date, pendingSlot, pendingAdd.value.trim(), '', false);
+    }
+
     const grid = document.getElementById('weekGrid');
     const alt = document.getElementById('weekViewContent');
 
@@ -1795,6 +1816,12 @@
       numSpan.textContent = day;
       hdr.appendChild(numSpan);
 
+      // Periods take over the column body, so the day header opens the label modal
+      if (d.getFullYear() === YEAR) {
+        hdr.classList.add('clickable');
+        hdr.addEventListener('click', () => openLabelModal(m, day));
+      }
+
       col.appendChild(hdr);
 
       // Body
@@ -1808,14 +1835,198 @@
           renderCellLabels(body, key, wkLabelsMap[key], 'week');
         }
 
-        body.addEventListener('click', () => openLabelModal(m, day));
+        body.addEventListener('click', (e) => {
+          // Clicks inside the period sections have their own handlers
+          if (!e.target.closest('.wv-periods')) openLabelModal(m, day);
+        });
         setupCellDropZone(body, m, day);
       }
+
+      // Period sections (manhã/tarde/noite) — same data as the day view time grid
+      body.appendChild(buildWeekPeriods(formatDateISO(d)));
 
       col.appendChild(body);
       grid.appendChild(col);
     }
     applyFilters();
+  }
+
+  // --- WEEK VIEW PERIODS (manhã / tarde / noite) ---
+  var WV_PERIODS = [
+    { key: 'morning',   i18n: 'wvMorning',   start: 5,  end: 11 },
+    { key: 'afternoon', i18n: 'wvAfternoon', start: 12, end: 17 },
+    { key: 'evening',   i18n: 'wvEvening',   start: 18, end: 23 }
+  ];
+
+  function periodSlotKeys(period) {
+    var keys = [];
+    for (var h = period.start; h <= period.end; h++) {
+      keys.push(h + '_00');
+      keys.push(h + '_30');
+    }
+    return keys;
+  }
+
+  function buildWeekPeriods(dateStr) {
+    var wrap = document.createElement('div');
+    wrap.className = 'wv-periods';
+
+    var now = new Date();
+    var isCurrentDay = dateStr === formatDateISO(now);
+
+    WV_PERIODS.forEach(function(period) {
+      var sec = document.createElement('div');
+      sec.className = 'wv-period';
+      if (isCurrentDay && now.getHours() >= period.start && now.getHours() <= period.end) {
+        sec.classList.add('now');
+      }
+
+      var hdr = document.createElement('div');
+      hdr.className = 'wv-period-header';
+
+      var name = document.createElement('span');
+      name.className = 'wv-period-name';
+      name.textContent = t(period.i18n);
+      hdr.appendChild(name);
+
+      var hours = document.createElement('span');
+      hours.className = 'wv-period-hours';
+      hours.textContent = String(period.start).padStart(2, '0') + '–' + String(period.end + 1).padStart(2, '0') + 'h';
+      hdr.appendChild(hours);
+
+      sec.appendChild(hdr);
+
+      var list = document.createElement('div');
+      list.className = 'wv-period-list';
+      sec.appendChild(list);
+      renderWeekPeriodList(list, dateStr, period);
+
+      // Quick add — writes into the first free half-hour slot of the period
+      var add = document.createElement('input');
+      add.type = 'text';
+      add.className = 'wv-period-add';
+      add.maxLength = 60;
+      add.placeholder = t('wvAddPh');
+      add.dataset.date = dateStr;
+      add.dataset.period = period.key;
+      add.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitWeekQuickAdd(add, list, dateStr, period);
+        }
+      });
+      add.addEventListener('blur', function() { commitWeekQuickAdd(add, list, dateStr, period); });
+      sec.appendChild(add);
+
+      // Clicking the empty area of a period focuses its quick-add
+      sec.addEventListener('click', function(e) {
+        if (e.target === sec || e.target === list || e.target === hdr) add.focus();
+      });
+
+      wrap.appendChild(sec);
+    });
+
+    return wrap;
+  }
+
+  function findFreePeriodSlot(dateStr, period) {
+    var dayData = getTimeboxingDay(dateStr);
+    return periodSlotKeys(period).find(function(k) {
+      var e = dayData.schedule[k];
+      return !e || (!e.text && !e.category);
+    });
+  }
+
+  function commitWeekQuickAdd(input, list, dateStr, period) {
+    var text = input.value.trim();
+    if (!text) return;
+    var slot = findFreePeriodSlot(dateStr, period);
+    if (!slot) {
+      // all half-hour slots of this period are taken
+      input.classList.add('full');
+      setTimeout(function() { input.classList.remove('full'); }, 700);
+      return;
+    }
+    saveTimeboxingSchedule(dateStr, slot, text, '', false);
+    input.value = '';
+    // Insert only the new row — a full list rebuild between mousedown and
+    // mouseup would swallow the click that triggered this commit via blur
+    var entry = getTimeboxingDay(dateStr).schedule[slot];
+    var row = createWeekEntryRow(dateStr, slot, entry, list, period);
+    var order = periodSlotKeys(period);
+    var idx = order.indexOf(slot);
+    var next = Array.prototype.find.call(list.children, function(r) {
+      return order.indexOf(r.dataset.key) > idx;
+    });
+    list.insertBefore(row, next || null);
+  }
+
+  function renderWeekPeriodList(list, dateStr, period) {
+    list.innerHTML = '';
+    var dayData = state.timeboxing && state.timeboxing[dateStr];
+    if (!dayData || !dayData.schedule) return;
+
+    periodSlotKeys(period).forEach(function(key) {
+      var entry = dayData.schedule[key];
+      if (!entry || (!entry.text && !entry.category)) return;
+      list.appendChild(createWeekEntryRow(dateStr, key, entry, list, period));
+    });
+  }
+
+  function createWeekEntryRow(dateStr, key, entry, list, period) {
+    var row = document.createElement('div');
+    row.className = 'wv-entry';
+    row.dataset.key = key;
+    if (entry.category) row.setAttribute('data-cat', entry.category);
+    if (entry.text) row.classList.add('has-text');
+    if (entry.done) row.classList.add('done');
+
+    var toggle = document.createElement('div');
+    toggle.className = 'day-done-toggle';
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var data = getTimeboxingDay(dateStr);
+      var ent = data.schedule[key];
+      if (!ent || !ent.text) return;
+      ent.done = !ent.done;
+      row.classList.toggle('done', ent.done);
+      saveState();
+    });
+    row.appendChild(toggle);
+
+    var time = document.createElement('span');
+    time.className = 'wv-entry-time';
+    var parts = key.split('_');
+    time.textContent = String(parts[0]).padStart(2, '0') + ':' + parts[1];
+    row.appendChild(time);
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'day-cell-input';
+    input.maxLength = 60;
+    input.value = entry.text || '';
+    input.addEventListener('input', function() {
+      row.classList.toggle('has-text', !!input.value);
+      if (!input.value) row.classList.remove('done');
+      var cat = row.getAttribute('data-cat') || '';
+      var done = row.classList.contains('done');
+      saveTimeboxingSchedule(dateStr, key, input.value, cat, done);
+    });
+    input.addEventListener('blur', function() {
+      if (!input.value) renderWeekPeriodList(list, dateStr, period);
+    });
+    row.appendChild(input);
+
+    var dot = document.createElement('div');
+    dot.className = 'day-cat-dot';
+    if (entry.category) dot.classList.add('has-cat');
+    dot.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openDayCategoryPicker(row, dot, dateStr);
+    });
+    row.appendChild(dot);
+
+    return row;
   }
 
   function zoomMonthPrev() {
@@ -2191,6 +2402,10 @@
 
     var done = cell.classList.contains('done');
     saveTimeboxingSchedule(dateStr, key, input.value, cat, done);
+    // Week-view rows only exist while the entry exists — remove when fully cleared
+    if (cell.classList.contains('wv-entry') && !input.value && !cat) {
+      cell.remove();
+    }
     closeDayCategoryPicker();
   });
 
