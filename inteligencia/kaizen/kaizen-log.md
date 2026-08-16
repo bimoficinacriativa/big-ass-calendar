@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-08-16 — Ciclo #7: Periodos no mobile/vertical + arrastar entre dias
+
+**Pedido (Marcos):** fechar as 2 limitacoes do Ciclo #6 — periodos no modo semana do iPhone e do monitor vertical, e arrastar item entre dias.
+
+**Apliquei:**
+- `buildWeekPeriods` anexado tambem em `renderWeekViewMobile` (slides de swipe) e `renderWeekViewStacked` (monitor vertical); click handlers de etiqueta ganharam guarda `closest('.wv-periods')`
+- Drag and drop nativo: `.wv-entry` draggable carregando `{date,key}` em `application/x-week-entry`; cada `.wv-period` e drop zone. `moveEntryToDayPeriod` mantem a hora quando ela cabe no periodo destino e esta livre, senao usa a ancora. Preserva feito e categoria
+- Editor do horario virou **dia + hora** (`<select>` dos 7 dias + `input type=time`): e assim que se move uma entry em tela de toque, onde DnD nativo nao existe. Commit em `focusout` que ignora foco interno ao editor
+- `moveWeekEntry` ganhou `toDate`; `pruneTimeboxingDay` extraido e usado nos moves
+- CSS: feedback de drop, alvos de toque maiores (linha ~39px, toggle 20px, texto 16px) nos layouts mobile/vertical
+
+**Bug PRE-EXISTENTE encontrado e corrigido:** o carrossel do mobile fazia `translateX(-idx * 100%)` numa faixa de `width: 700%`, deslocando 7 dias por swipe. So o indice 0 funcionava — qualquer outro dia mostrava tela em branco. Virou `-idx * (100/7)%`. Confirmado no `git show HEAD:app.js` que era anterior ao meu diff.
+
+**Revisao adversarial (workflow 21 agentes, 3 lentes + refutacao): 11 confirmados, 7 refutados. Todos corrigidos:**
+- ⚠️ **ALTA — duplicacao de entry:** o picker de categoria nao fecha em re-render e o drag nao gera `click` (que e o unico fechamento automatico). Abrir o picker numa entry, arrasta-la pra outro dia e entao escolher a categoria fazia o handler delegado gravar via no DESTACADO, recriando o dia de origem: a mesma entry passava a existir nos 2 dias. Fix: `closeDayCategoryPicker()` no inicio de `renderWeekView` + guarda `document.contains(activeDayCatCell.cell)` no handler
+- **ALTA — posicao da view perdida:** `refreshWeekColumnPeriods` so procurava `.wv-column`, que nao existe nos layouts novos; toda edicao caia no rebuild total que a funcao existe pra evitar, e o carrossel voltava pro dia de hoje. Fix: seletor `.wv-column, .wv-swipe-slide, .wv-stacked-row` + `swipeRenderedWeek` preserva o slide entre re-renders da mesma semana + scroll preservado no vertical
+- **ALTA — listeners de swipe acumulando:** `#weekViewContent` sobrevive aos re-renders, entao cada render empilhava um par touchstart/touchend; depois do fix do translateX um swipe pularia N dias. Fix: bind unico via `dataset.swipeBound`
+- **BAIXA:** `weekDayOptions` oferecia dias fora do YEAR que os renderers mobile/vertical nao desenham (entry sumia); `.dragging` aplicada sincronamente desbotava o proprio ghost do drag
+
+**Validei no navegador:** duplicata some (state com 1 entry, dia de origem removido), swipe avanca exatamente 1 dia apos 4 re-renders, slide preservado em quick-add e edicao, scroll do vertical preservado, 7 slides alinhados ao pixel, 21 periodos nos 3 layouts, sync com o modo DIA.
+
+**Limitacoes (proximo ciclo):**
+- Arrastar so com mouse — navegador nao dispara DnD nativo em toque; no celular o caminho e o editor dia+hora
+- Modo DIA nao tem arrastar nem editor de dia; so a semana
+
 ## 2026-08-15 — Ciclo #5: Modo SEMANA com periodos manha/tarde/noite
 
 **Pedido (Marcos):** modo SEMANA precisava de estrutura de manha/tarde/noite como o modo DIA, para organizar a semana de gravacoes.

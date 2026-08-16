@@ -108,7 +108,8 @@
       wvEvening: 'NOITE',
       wvAddPh: '+ Adicionar...',
       wvAddHint: 'Comece com a hora pra agendar: "14h Gravar aula" ou "9h30 Revisão"',
-      wvChangeTime: 'Mudar horário',
+      wvChangeTime: 'Mudar dia e horário',
+      wvChangeDay: 'Mover para outro dia',
     },
     'en': {
       months: ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],
@@ -197,7 +198,8 @@
       wvEvening: 'EVENING',
       wvAddPh: '+ Add...',
       wvAddHint: 'Start with a time (24h) to schedule: "14:30 Record lesson"',
-      wvChangeTime: 'Change time',
+      wvChangeTime: 'Change day and time',
+      wvChangeDay: 'Move to another day',
     }
   };
 
@@ -1747,6 +1749,9 @@
     // reloadFromState/refreshActiveView call without args — fall back to current week
     if (!startDate) startDate = zoomWeekStart || getWeekStartForDate(new Date());
 
+    // The picker anchors to a row this rebuild is about to destroy
+    closeDayCategoryPicker();
+
     // A rebuild would silently drop a draft being typed in a quick-add
     // (e.g. remote sync mid-typing) — commit it first
     var pendingAdd = document.activeElement;
@@ -1935,6 +1940,36 @@
         if (e.target === sec || e.target === list || e.target === hdr) add.focus();
       });
 
+      // Drop zone: receives entries dragged from any day or period
+      sec.addEventListener('dragover', function(e) {
+        if (e.dataTransfer.types.indexOf('application/x-week-entry') === -1) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        sec.classList.add('wv-drop-target');
+      });
+      sec.addEventListener('dragleave', function(e) {
+        if (!sec.contains(e.relatedTarget)) sec.classList.remove('wv-drop-target');
+      });
+      sec.addEventListener('drop', function(e) {
+        if (e.dataTransfer.types.indexOf('application/x-week-entry') === -1) return;
+        e.preventDefault();
+        e.stopPropagation();
+        sec.classList.remove('wv-drop-target');
+        var raw = e.dataTransfer.getData('application/x-week-entry');
+        if (!raw) return;
+        var payload;
+        try { payload = JSON.parse(raw); } catch (err) { return; }
+        if (!payload || !payload.date || !payload.key) return;
+
+        var result = moveEntryToDayPeriod(payload.date, payload.key, dateStr, period);
+        if (result === 'moved') {
+          renderWeekView(zoomWeekStart);
+        } else if (result === 'full') {
+          sec.classList.add('wv-drop-full');
+          setTimeout(function() { sec.classList.remove('wv-drop-full'); }, 700);
+        }
+      });
+
       wrap.appendChild(sec);
     });
 
@@ -1978,6 +2013,25 @@
     return ordered.find(function(k) {
       return k === excludeKey || isFreeSlot(dayData, k);
     }) || null;
+  }
+
+  // The 7 days of the week on screen, for the entry's day selector
+  function weekDayOptions() {
+    var start = zoomWeekStart || getWeekStartForDate(new Date());
+    var lang = state.settings.lang;
+    var opts = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(start);
+      d.setDate(d.getDate() + i);
+      // Days outside the year aren't drawn by the mobile/stacked renderers,
+      // so an entry moved there would vanish from the view
+      if (d.getFullYear() !== YEAR) continue;
+      opts.push({
+        date: formatDateISO(d),
+        label: I18N[lang].days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1)
+      });
+    }
+    return opts;
   }
 
   // Where a quick-add line lands: explicit "14h Texto" prefix wins,
@@ -2041,7 +2095,10 @@
   // holding refEl. Rebuilding the whole grid instead would destroy the element
   // under an in-flight click (mousedown fires blur, mouseup finds nothing).
   function refreshWeekColumnPeriods(refEl, dateStr, keys) {
-    var col = refEl && refEl.closest && refEl.closest('.wv-column');
+    // Every renderer holds the day's three period lists in the same order:
+    // a column (desktop), a swipe slide (phone) or a stacked row (vertical)
+    var col = refEl && refEl.closest &&
+      refEl.closest('.wv-column, .wv-swipe-slide, .wv-stacked-row');
     if (!col) { renderWeekView(zoomWeekStart); return; }
     var lists = col.querySelectorAll('.wv-period-list');
     var done = {};
@@ -2053,19 +2110,52 @@
     });
   }
 
-  // Move an entry to a new half-hour slot (nearest free one if taken).
-  // Returns 'moved' | 'unchanged' | 'full' | 'gone' so the caller can react.
-  function moveWeekEntry(dateStr, fromKey, hour, half, rowEl) {
-    var dayData = getTimeboxingDay(dateStr);
-    var entry = dayData.schedule[fromKey];
+  // Move an entry to another day and/or period (drag and drop). Keeps the
+  // original time when it still fits the target period and is free there,
+  // otherwise falls back to the period's anchor search.
+  // Returns 'moved' | 'unchanged' | 'full' | 'gone'.
+  function moveEntryToDayPeriod(fromDate, fromKey, toDate, period) {
+    var fromDay = getTimeboxingDay(fromDate);
+    var entry = fromDay.schedule[fromKey];
     if (!entry) return 'gone';
-    var target = findFreeSlotFromHour(dateStr, hour, half, fromKey);
+
+    var toDay = getTimeboxingDay(toDate);
+    var keepsTime = keyInPeriod(fromKey, period) &&
+      (fromDate === toDate || isFreeSlot(toDay, fromKey));
+    var target = keepsTime ? fromKey : findFreePeriodSlot(toDate, period);
+
     if (!target) return 'full';
-    if (target === fromKey) return 'unchanged';
-    dayData.schedule[target] = entry;
-    delete dayData.schedule[fromKey];
+    if (fromDate === toDate && target === fromKey) return 'unchanged';
+
+    toDay.schedule[target] = entry;
+    delete fromDay.schedule[fromKey];
+    pruneTimeboxingDay(fromDate);
     saveState();
-    refreshWeekColumnPeriods(rowEl, dateStr, [fromKey, target]);
+    return 'moved';
+  }
+
+  // Move an entry to an explicit day and half-hour slot (nearest free one if
+  // taken). Returns 'moved' | 'unchanged' | 'full' | 'gone'.
+  function moveWeekEntry(fromDate, fromKey, toDate, hour, half, rowEl) {
+    var fromDay = getTimeboxingDay(fromDate);
+    var entry = fromDay.schedule[fromKey];
+    if (!entry) return 'gone';
+
+    var sameDay = fromDate === toDate;
+    var target = findFreeSlotFromHour(toDate, hour, half, sameDay ? fromKey : null);
+    if (!target) return 'full';
+    if (sameDay && target === fromKey) return 'unchanged';
+
+    getTimeboxingDay(toDate).schedule[target] = entry;
+    delete fromDay.schedule[fromKey];
+    pruneTimeboxingDay(fromDate);
+    saveState();
+
+    if (sameDay) {
+      refreshWeekColumnPeriods(rowEl, fromDate, [fromKey, target]);
+    } else {
+      renderWeekView(zoomWeekStart);
+    }
     return 'moved';
   }
 
@@ -2085,9 +2175,28 @@
     var row = document.createElement('div');
     row.className = 'wv-entry';
     row.dataset.key = key;
+    row.dataset.date = dateStr;
     if (entry.category) row.setAttribute('data-cat', entry.category);
     if (entry.text) row.classList.add('has-text');
     if (entry.done) row.classList.add('done');
+
+    // Drag the entry to another day or period
+    row.draggable = true;
+    row.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('application/x-week-entry',
+        JSON.stringify({ date: dateStr, key: key }));
+      e.dataTransfer.effectAllowed = 'move';
+      document.body.classList.add('wv-dragging');
+      // Defer: the browser snapshots the row for the drag ghost synchronously,
+      // so fading it now would fade the ghost too
+      setTimeout(function() { row.classList.add('dragging'); }, 0);
+    });
+    row.addEventListener('dragend', function() {
+      row.classList.remove('dragging');
+      document.body.classList.remove('wv-dragging');
+      document.querySelectorAll('.wv-period.wv-drop-target')
+        .forEach(function(el) { el.classList.remove('wv-drop-target'); });
+    });
 
     var toggle = document.createElement('div');
     toggle.className = 'day-done-toggle';
@@ -2108,8 +2217,25 @@
     var timeValue = String(parts[0]).padStart(2, '0') + ':' + parts[1];
     time.textContent = timeValue;
     time.title = t('wvChangeTime');
+    // Tapping the time opens a day + time editor. Dragging is faster but only
+    // exists with a mouse, so this is how an entry moves on a touch screen.
     time.addEventListener('click', function(e) {
       e.stopPropagation();
+
+      var editor = document.createElement('span');
+      editor.className = 'wv-entry-edit';
+
+      var daySelect = document.createElement('select');
+      daySelect.className = 'wv-entry-day-select';
+      daySelect.title = t('wvChangeDay');
+      weekDayOptions().forEach(function(opt) {
+        var o = document.createElement('option');
+        o.value = opt.date;
+        o.textContent = opt.label;
+        if (opt.date === dateStr) o.selected = true;
+        daySelect.appendChild(o);
+      });
+
       var picker = document.createElement('input');
       picker.type = 'time';
       picker.className = 'wv-entry-time-input';
@@ -2117,31 +2243,43 @@
       picker.step = 1800;
       picker.min = String(DAY_START_HOUR).padStart(2, '0') + ':00';
       picker.max = String(DAY_END_HOUR).padStart(2, '0') + ':30';
-      time.replaceWith(picker);
+
+      editor.appendChild(daySelect);
+      editor.appendChild(picker);
+      time.replaceWith(editor);
       picker.focus();
+
       var finished = false;
+      var close = function() { finished = true; editor.replaceWith(time); };
       var commit = function() {
         if (finished) return;
         finished = true;
         var v = picker.value;
         var hh = v ? parseInt(v.slice(0, 2), 10) : NaN;
+        var toDate = daySelect.value || dateStr;
         if (!v || !(hh >= DAY_START_HOUR && hh <= DAY_END_HOUR)) {
-          picker.replaceWith(time);
+          editor.replaceWith(time);
           return;
         }
-        var moved = moveWeekEntry(dateStr, key, hh,
+        var moved = moveWeekEntry(dateStr, key, toDate, hh,
           parseInt(v.slice(3, 5), 10) >= 30 ? '30' : '00', row);
         if (moved === 'moved') return; // the row was re-rendered away
-        picker.replaceWith(time);
+        editor.replaceWith(time);
         if (moved === 'full') {
           time.classList.add('full');
           setTimeout(function() { time.classList.remove('full'); }, 700);
         }
       };
-      picker.addEventListener('blur', commit);
-      picker.addEventListener('keydown', function(ev) {
+
+      // Only commit once focus leaves the editor entirely — moving between the
+      // day select and the time input must not close it
+      editor.addEventListener('focusout', function(ev) {
+        if (editor.contains(ev.relatedTarget)) return;
+        commit();
+      });
+      editor.addEventListener('keydown', function(ev) {
         if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
-        if (ev.key === 'Escape') { finished = true; picker.replaceWith(time); }
+        if (ev.key === 'Escape') { ev.preventDefault(); close(); }
       });
     });
     row.appendChild(time);
@@ -2159,8 +2297,12 @@
       saveTimeboxingSchedule(dateStr, key, input.value, cat, done);
     });
     input.addEventListener('blur', function() {
+      row.draggable = true;
       if (!input.value) renderWeekPeriodList(list, dateStr, period);
     });
+    // A draggable parent swallows text selection inside the input, so release
+    // the row while the caret is in there
+    input.addEventListener('mousedown', function() { row.draggable = false; });
     row.appendChild(input);
 
     var dot = document.createElement('div');
@@ -2254,11 +2396,18 @@
     } else {
       day.schedule[key] = { text: text || '', category: category || '', done: !!done };
     }
-    // Clean up empty day entries
-    if (!day.priorities.some(function(p) { return p; }) && !day.braindump && Object.keys(day.schedule).length === 0) {
+    pruneTimeboxingDay(dateStr);
+    saveState();
+  }
+
+  // Drop a day that no longer holds anything, so empty shells don't pile up
+  function pruneTimeboxingDay(dateStr) {
+    var day = state.timeboxing && state.timeboxing[dateStr];
+    if (!day) return;
+    var hasPriority = day.priorities && day.priorities.some(function(p) { return p; });
+    if (!hasPriority && !day.braindump && Object.keys(day.schedule).length === 0) {
       delete state.timeboxing[dateStr];
     }
-    saveState();
   }
 
   function renderDayView(dateStr) {
@@ -2530,6 +2679,14 @@
   document.getElementById('dayCategoryPicker').addEventListener('click', function(e) {
     var btn = e.target.closest('button[data-cat]');
     if (!btn || !activeDayCatCell) return;
+
+    // The row may have been re-rendered away (a drag or a move rebuilds the
+    // week). Writing through a detached node would resurrect the entry at its
+    // old slot, leaving a duplicate.
+    if (!document.contains(activeDayCatCell.cell)) {
+      closeDayCategoryPicker();
+      return;
+    }
 
     var cat = btn.dataset.cat;
     var cell = activeDayCatCell.cell;
@@ -3183,6 +3340,7 @@
 
   // --- iPhone Week Swipe ---
   let swipeCurrentDay = 0; // 0-6 index in the week
+  let swipeRenderedWeek = null; // which week the slide index belongs to
 
   function renderWeekViewMobile(startDate) {
     const container = document.getElementById('weekViewContent');
@@ -3200,13 +3358,24 @@
         todayIdx = i;
       }
     });
-    swipeCurrentDay = todayIdx >= 0 ? todayIdx : 0;
+
+    // Editing an entry re-renders the week; snapping back to today would throw
+    // the user off the day they were working on. Only reset on a new week.
+    const weekKey = formatDateISO(startDate);
+    if (swipeRenderedWeek === weekKey) {
+      swipeCurrentDay = Math.min(Math.max(swipeCurrentDay, 0), 6);
+    } else {
+      swipeCurrentDay = todayIdx >= 0 ? todayIdx : 0;
+      swipeRenderedWeek = weekKey;
+    }
 
     // Create swipe track
     var mobileLabelsMap = getLabelsPerCell();
     const track = document.createElement('div');
     track.className = 'wv-swipe-track';
-    track.style.transform = `translateX(-${swipeCurrentDay * 100}%)`;
+    // The track is 700% wide, so one slide is 100/7 of it — using 100% here
+    // would jump a whole week and land on blank space
+    track.style.transform = `translateX(-${swipeCurrentDay * (100 / 7)}%)`;
 
     days.forEach((dd, i) => {
       const d = new Date(YEAR, dd.month, dd.day);
@@ -3251,8 +3420,12 @@
           });
         }
 
-        body.addEventListener('click', () => openLabelModal(m, day));
+        body.addEventListener('click', (e) => {
+          if (!e.target.closest('.wv-periods')) openLabelModal(m, day);
+        });
       }
+
+      body.appendChild(buildWeekPeriods(formatDateISO(d)));
 
       slide.appendChild(body);
       track.appendChild(slide);
@@ -3281,30 +3454,36 @@
     });
     container.appendChild(fab);
 
-    // Touch swipe handling
-    let startX = 0, startY = 0, isDragging = false;
-    container.addEventListener('touchstart', (e) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      isDragging = true;
-    }, { passive: true });
+    // Touch swipe handling — #weekViewContent survives re-renders, so bind
+    // once. Re-binding per render stacked handlers and made one swipe jump
+    // as many days as the view had been rendered.
+    if (!container.dataset.swipeBound) {
+      container.dataset.swipeBound = '1';
+      let startX = 0, startY = 0, isDragging = false;
+      container.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isDragging = true;
+      }, { passive: true });
 
-    container.addEventListener('touchend', (e) => {
-      if (!isDragging) return;
-      isDragging = false;
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-        if (dx < 0 && swipeCurrentDay < 6) swipeTo(swipeCurrentDay + 1);
-        else if (dx > 0 && swipeCurrentDay > 0) swipeTo(swipeCurrentDay - 1);
-      }
-    }, { passive: true });
+      container.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        if (!container.querySelector('.wv-swipe-track')) return; // not the swipe layout
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+          if (dx < 0 && swipeCurrentDay < 6) swipeTo(swipeCurrentDay + 1);
+          else if (dx > 0 && swipeCurrentDay > 0) swipeTo(swipeCurrentDay - 1);
+        }
+      }, { passive: true });
+    }
   }
 
   function swipeTo(idx) {
     swipeCurrentDay = idx;
     const track = document.querySelector('.wv-swipe-track');
-    if (track) track.style.transform = `translateX(-${idx * 100}%)`;
+    if (track) track.style.transform = `translateX(-${idx * (100 / 7)}%)`;
     document.querySelectorAll('.wv-swipe-dot').forEach((d, i) => {
       d.classList.toggle('active', i === idx);
     });
@@ -3316,6 +3495,9 @@
     if (!container) return;
 
     const days = getWeekDays(startDate);
+    // Editing an entry re-renders the week — keep the reader where they were
+    const keepScroll = container.classList.contains('wv-stacked-container')
+      ? container.scrollTop : 0;
     container.innerHTML = '';
     container.className = 'wv-stacked-container';
     var stackedLabelsMap = getLabelsPerCell();
@@ -3344,12 +3526,17 @@
           renderCellLabels(body, key, stackedLabelsMap[key], 'week');
         }
 
-        body.addEventListener('click', () => openLabelModal(m, day));
+        body.addEventListener('click', (e) => {
+          if (!e.target.closest('.wv-periods')) openLabelModal(m, day);
+        });
       }
+
+      body.appendChild(buildWeekPeriods(formatDateISO(d)));
 
       row.appendChild(body);
       container.appendChild(row);
     });
+    if (keepScroll) container.scrollTop = keepScroll;
     applyFilters();
   }
 

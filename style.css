@@ -1392,6 +1392,34 @@ body {
   border-radius: 4px;
   background: var(--hover-bg);
   border: 1px solid var(--border);
+  cursor: grab;
+}
+
+.wv-entry:active { cursor: grabbing; }
+
+.wv-entry.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+/* Drop feedback on the receiving period */
+.wv-period.wv-drop-target {
+  background: rgba(0, 148, 214, 0.12);
+  border-top-color: #0094D6;
+  box-shadow: inset 0 0 0 2px #0094D6;
+  border-radius: 4px;
+}
+
+.wv-period.wv-drop-full {
+  background: rgba(229, 57, 53, 0.12);
+  box-shadow: inset 0 0 0 2px #E53935;
+  border-radius: 4px;
+}
+
+/* While dragging, make every period read as a target */
+body.wv-dragging .wv-period {
+  outline: 1px dashed var(--border);
+  outline-offset: -2px;
 }
 
 .wv-entry .day-done-toggle {
@@ -1446,6 +1474,28 @@ body {
   opacity: 1;
   color: #E53935;
   background: rgba(229, 57, 53, 0.15);
+}
+
+.wv-entry-edit {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.wv-entry-day-select {
+  flex-shrink: 0;
+  max-width: 86px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--cell-bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 2px;
+  outline: none;
 }
 
 .wv-entry-time-input {
@@ -1557,6 +1607,67 @@ body {
 @media (hover: none) {
   .wv-entry .day-cat-dot { opacity: 0.35; }
 }
+
+/* ============================================
+   WEEK PERIODS — mobile slide + vertical monitor
+   ============================================ */
+
+/* The stacked body wraps in row direction; periods take their own line */
+.wv-stacked-body .wv-periods,
+.wv-swipe-body .wv-periods {
+  width: 100%;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Touch layouts get room to tap: bigger rows, readable type */
+.wv-stacked-body .wv-entry,
+.wv-swipe-body .wv-entry {
+  padding: 8px 10px;
+  gap: 8px;
+  border-radius: 6px;
+}
+
+.wv-stacked-body .wv-entry .day-cell-input,
+.wv-swipe-body .wv-entry .day-cell-input { font-size: 16px; }
+
+.wv-stacked-body .wv-entry-time,
+.wv-swipe-body .wv-entry-time { font-size: 14px; padding: 2px 4px; }
+
+.wv-stacked-body .wv-entry .day-done-toggle,
+.wv-swipe-body .wv-entry .day-done-toggle { width: 20px; height: 20px; }
+
+.wv-stacked-body .wv-entry.done .day-done-toggle::after,
+.wv-swipe-body .wv-entry.done .day-done-toggle::after {
+  left: 5px; top: 2px; width: 5px; height: 10px;
+}
+
+.wv-stacked-body .wv-entry .day-cat-dot,
+.wv-swipe-body .wv-entry .day-cat-dot { width: 16px; height: 16px; }
+
+.wv-stacked-body .wv-period-name,
+.wv-swipe-body .wv-period-name { font-size: 13px; }
+
+.wv-stacked-body .wv-period-hours,
+.wv-swipe-body .wv-period-hours { font-size: 11px; }
+
+.wv-stacked-body .wv-period-add,
+.wv-swipe-body .wv-period-add {
+  font-size: 15px;
+  padding: 8px 10px;
+  opacity: 0.6;
+}
+
+.wv-stacked-body .wv-entry-time-input,
+.wv-swipe-body .wv-entry-time-input { font-size: 15px; width: 110px; }
+
+.wv-stacked-body .wv-entry-day-select,
+.wv-swipe-body .wv-entry-day-select { font-size: 15px; max-width: 120px; padding: 4px; }
+
+/* Periods grow with content here — the body itself scrolls */
+.wv-stacked-body .wv-period,
+.wv-swipe-body .wv-period { flex: 0 0 auto; }
 
 /* ============================================
    DAY VIEW (Timeboxing) — Athletic Training Board
@@ -3720,7 +3831,9 @@ body {
   border: 1px solid var(--border);
   background: var(--cell-bg);
   min-height: 120px;
-  flex: 1;
+  /* basis auto: fills spare height when sparse, grows with the periods when
+     not — the container scrolls either way */
+  flex: 1 0 auto;
 }
 
 .wv-stacked-row.weekend { background: var(--weekend-bg); }

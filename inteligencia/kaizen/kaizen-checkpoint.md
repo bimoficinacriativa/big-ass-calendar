@@ -2,7 +2,7 @@
 
 > Visao centralizada de progresso.
 
-Ultima atualizacao: **2026-08-15 (Ciclo #6 — Horario editavel nas entradas da semana)**
+Ultima atualizacao: **2026-08-16 (Ciclo #7 — Periodos no mobile/vertical + arrastar entre dias)**
 
 ---
 
@@ -64,8 +64,9 @@ Ultima atualizacao: **2026-08-15 (Ciclo #6 — Horario editavel nas entradas da 
 | 12 temas visuais | Funcional |
 | Responsivo (Mac/iPhone/TV) | Funcional |
 | Brain Dump + Drag & Drop | Funcional |
-| Semana com periodos manha/tarde/noite (sync timeboxing) | Funcional (desktop; mobile/vertical pendente) |
-| Horario por entrada na semana (ancora, prefixo "14h", picker) | Funcional (desktop) |
+| Semana com periodos manha/tarde/noite (sync timeboxing) | Funcional nos 3 layouts (desktop, iPhone, monitor vertical) |
+| Horario por entrada na semana (ancora, prefixo "14h", picker) | Funcional |
+| Mover entrada de dia: arrastar (mouse) + editor dia+hora (toque) | Funcional |
 
 ---
 
@@ -131,16 +132,17 @@ Ultima atualizacao: **2026-08-15 (Ciclo #6 — Horario editavel nas entradas da 
 
 ### Quick wins (proximo ciclo)
 - [x] Corrigir CLAUDE.md: dizia Firebase Hosting, deploy real e GitHub Pages (K02, feito no Ciclo #6)
-- [ ] Periodos manha/tarde/noite nos renderers mobile e monitor vertical (K04)
+- [x] Periodos manha/tarde/noite nos renderers mobile e monitor vertical (K04, feito no Ciclo #7)
 - [ ] Adicionar `<meta name="description">` (SEO +10)
 - [ ] Corrigir contraste azul principal (#0094D6 → #0077B6 ou similar, ratio ≥ 4.5:1)
 - [ ] Adicionar `inert` attribute ao side panel quando fechado
 
 ### Medio prazo
-- [ ] Commitar as delecoes pendentes da reorganizacao de abril (`01 timeblocking/`, `docs/`) — feitas em disco, nunca commitadas
-- [ ] Drag-and-drop de entradas entre dias/periodos na semana
-- [ ] Modularizar app.js (**184KB** monolitico, +14KB no Ciclo #6)
-- [ ] Purge CSS nao utilizado (**112KB** → meta <80KB)
+- [x] Commitar as delecoes pendentes da reorganizacao de abril (feito no Ciclo #6, 28 renames)
+- [x] Drag-and-drop de entradas entre dias/periodos na semana (Ciclo #7)
+- [ ] Arrastar em telas de toque (DnD nativo nao dispara; hoje o caminho e o editor dia+hora)
+- [ ] Modularizar app.js (**5205 linhas** monoliticas, +187 no Ciclo #7)
+- [ ] Purge CSS nao utilizado (**5266 linhas** → meta <4000)
 - [ ] Auditar security rules do Firestore
 - [ ] Avaliar migracao compat → modular SDK (tree-shaking)
 - [ ] Medir Firestore reads por sessao
@@ -149,6 +151,10 @@ Ultima atualizacao: **2026-08-15 (Ciclo #6 — Horario editavel nas entradas da 
 - Botao com classe `.zoom-btn` sem `data-zoom` entra no bind generico e chama `setZoom(undefined)` — sempre filtrar por atributo
 - Chrome **dispara** `blur` ao remover do DOM um input focado: commit em blur + commit em rebuild = gravacao dupla
 - Rebuild total do grid entre `mousedown` e `mouseup` engole o clique — re-renderizar so a lista afetada
+- **Popover que guarda referencia a um no e sobrevive a re-render grava por no destacado** e ressuscita dados apagados. Um drag NAO gera `click`, entao fechamento por clique-fora nao salva. Fechar no inicio do render E validar `document.contains()` antes de gravar
+- **`#weekViewContent` sobrevive aos re-renders**: listener adicionado dentro do renderer se acumula. Bind unico via `dataset.*`
+- Seletor de container em helper de refresh precisa cobrir os 3 renderers (`.wv-column, .wv-swipe-slide, .wv-stacked-row`), senao cai no fallback caro
+- Classe de opacidade aplicada sincronamente no `dragstart` desbota o proprio ghost do drag — adiar com `setTimeout(0)`
 
 ---
 
