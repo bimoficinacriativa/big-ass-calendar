@@ -4,6 +4,37 @@
 
 ---
 
+## 2026-08-16 — Ciclo #8: Arrastar por toque (alca + trilho de dias)
+
+**Pedido (Marcos):** "loop kaizen pra implementar toque e arraste no mobile" — fechar a limitacao do Ciclo #7 (DnD nativo nao dispara em toque).
+
+**Estudei (painel de 4 abordagens + 3 juizes, workflow de 7 agentes):** long-press+ghost com auto-avanco na borda; long-press+barra de dias; **alca dedicada + trilho de dias**; e pega no horario com Pointer Events. Vencedora UNANIME nas 3 lentes (usabilidade no dedo, robustez tecnica, custo).
+
+**Por que a alca venceu — argumento de spec, nao de gosto:** no iOS o `touch-action` e resolvido no INICIO do gesto. Long-press precisa cancelar a rolagem DEPOIS que o dedo ja encostou, apostando que o WebKit ainda nao "commitou" o gesto pro scroll — as 3 propostas com long-press classificaram isso como risco alto verificavel so em iPhone fisico. Com alca, `touch-action: none` fica confinado a 28px onde o gesto NASCE: a rolagem do resto da linha continua intacta. Conflito eliminado por construcao, nao negociado.
+
+**Apliquei:**
+- `.wv-entry-grip` (≡) como filho da linha, unico elemento com `touch-action: none` (28px em `pointer: coarse`, 14px no mouse)
+- Motor com Pointer Events; sai cedo se `pointerType === 'mouse'` (DnD nativo intocado). Sem long-press: arrasta apos 4px de slop
+- Todo trabalho por frame num `requestAnimationFrame` (fantasma, `elementFromPoint`, dwell, auto-scroll) — nao no handler de evento
+- Fantasma montado A MAO: `cloneNode` copiaria o atributo `value`, nao a propriedade viva, e o cartao sairia com texto VAZIO
+- **Trilho de dias** (`.wv-day-rail`): no carrossel os outros 6 dias sao clipados por `overflow:hidden` e `elementFromPoint` NUNCA os retorna — nao existe posicao de dedo que os alcance. 7 chips no rodape; pairar 220ms navega sem soltar o dedo; soltar no chip move mantendo o periodo
+- `resolveDropSlot` extraido (read-only, nao cria dia vazio): mesma regra preve "periodo cheio" ANTES de soltar e executa o move
+- Legenda flutuante diz onde vai cair ("QUI 20 · TARDE 14:00") porque o dedo tapa o alvo
+- `wvEatNextClick()`: o toque emite um click sintetico ~300ms apos o drop que focaria um quick-add e subiria o teclado
+
+**Revisao adversarial (24 agentes, 3 lentes): 17 confirmados / 4 refutados. Todos corrigidos:**
+- ⚠️ **ALTA — trilho na semana que cruza 1º de janeiro:** os slides vem de `getWeekDays`, que DESCARTA dias fora do ano; o chip guardava o offset desde domingo. Na semana 28/12/2025–03/01/2026 sao 3 slides mas 7 chips: pairar no dia 1 chamava `swipeTo(4)` num track de 3 slides → tela em branco, e `swipeCurrentDay` ficava preso em 4 mesmo apos o re-render. Fix: indice resolvido por busca em `getWeekDays`, chip sem slide fica `disabled`
+- **ALTA — auto-scroll congelado no scroller de ORIGEM:** `d.scroller` era capturado no pointerdown; apos o trilho navegar, rolava a lista do dia que saiu de tela (mesma geometria X). Fix: scroller derivado do `elementFromPoint` a cada frame — o que tambem impede rolar a lista quando o dedo esta sobre o trilho
+- **ALTA — legenda e chip branco-no-branco no tema darkgray:** usavam `var(--title)` como FUNDO com `color:#fff`, e `--title` e `#FDFDFD` nos temas escuros. Fix: cores fixas (`#1F2933` e `#0094D6`)
+- **MEDIA — flash vermelho de "cheio" morto:** o teardown limpava a classe no mesmo tick em que ela era acesa. Fix: teardown em 2 fases com `holdMs`, e a rejeicao tambem aparece ao soltar direto num chip
+- **MEDIA:** teclado aberto tapava o trilho (fix: `blur()` ao levantar); legenda ignorava a safe-area do topo; velocidade do auto-scroll dobrava em telas de 120Hz (fix: px/segundo, nao px/frame); `min-height: 68px` em `pointer: coarse` vazava pro grid de 7 colunas do iPad (fix: escopado aos layouts empilhados); `transform` inline anulava o `scale` do CSS
+
+**Validei no navegador:** alca com `touch-action: none` e linha com `auto`; fantasma com texto real; dwell navegando o carrossel; drop no periodo e no chip; cancelar no vazio; `pointercancel` limpando; mouse nao acionando o motor de toque; swipe bloqueado quando o gesto nasce na alca; periodo cheio avisando e NAO movendo; **semana 28/12–03/01 com chips corretos (-1/disabled para dias sem slide)**; desktop com DnD de mouse intacto.
+
+**Limitacoes (proximo ciclo):**
+- Nao testado em iPhone FISICO — o comportamento de `touch-action` e safe-area no Safari real e a unica coisa que o headless nao prova
+- Modo DIA continua sem arrastar; so a semana
+
 ## 2026-08-16 — Ciclo #7: Periodos no mobile/vertical + arrastar entre dias
 
 **Pedido (Marcos):** fechar as 2 limitacoes do Ciclo #6 — periodos no modo semana do iPhone e do monitor vertical, e arrastar item entre dias.

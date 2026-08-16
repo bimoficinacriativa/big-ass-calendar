@@ -2,7 +2,7 @@
 
 > Visao centralizada de progresso.
 
-Ultima atualizacao: **2026-08-16 (Ciclo #7 — Periodos no mobile/vertical + arrastar entre dias)**
+Ultima atualizacao: **2026-08-16 (Ciclo #8 — Arrastar por toque: alca + trilho de dias)**
 
 ---
 
@@ -66,7 +66,8 @@ Ultima atualizacao: **2026-08-16 (Ciclo #7 — Periodos no mobile/vertical + arr
 | Brain Dump + Drag & Drop | Funcional |
 | Semana com periodos manha/tarde/noite (sync timeboxing) | Funcional nos 3 layouts (desktop, iPhone, monitor vertical) |
 | Horario por entrada na semana (ancora, prefixo "14h", picker) | Funcional |
-| Mover entrada de dia: arrastar (mouse) + editor dia+hora (toque) | Funcional |
+| Mover entrada de dia: arrastar (mouse) + editor dia+hora | Funcional |
+| Arrastar por TOQUE (alca ≡ + trilho de dias no carrossel) | Funcional (falta teste em iPhone fisico) |
 
 ---
 
@@ -140,7 +141,8 @@ Ultima atualizacao: **2026-08-16 (Ciclo #7 — Periodos no mobile/vertical + arr
 ### Medio prazo
 - [x] Commitar as delecoes pendentes da reorganizacao de abril (feito no Ciclo #6, 28 renames)
 - [x] Drag-and-drop de entradas entre dias/periodos na semana (Ciclo #7)
-- [ ] Arrastar em telas de toque (DnD nativo nao dispara; hoje o caminho e o editor dia+hora)
+- [x] Arrastar em telas de toque (Ciclo #8: alca + trilho de dias, Pointer Events)
+- [ ] Testar o arrasto por toque em iPhone FISICO (`touch-action` e safe-area no Safari real)
 - [ ] Modularizar app.js (**5205 linhas** monoliticas, +187 no Ciclo #7)
 - [ ] Purge CSS nao utilizado (**5266 linhas** → meta <4000)
 - [ ] Auditar security rules do Firestore
@@ -155,6 +157,13 @@ Ultima atualizacao: **2026-08-16 (Ciclo #7 — Periodos no mobile/vertical + arr
 - **`#weekViewContent` sobrevive aos re-renders**: listener adicionado dentro do renderer se acumula. Bind unico via `dataset.*`
 - Seletor de container em helper de refresh precisa cobrir os 3 renderers (`.wv-column, .wv-swipe-slide, .wv-stacked-row`), senao cai no fallback caro
 - Classe de opacidade aplicada sincronamente no `dragstart` desbota o proprio ghost do drag — adiar com `setTimeout(0)`
+- **`touch-action` e resolvido no INICIO do gesto**: nao da pra "desligar a rolagem" depois que o dedo encostou. Gesto de arrasto em toque precisa nascer num elemento que ja tenha `touch-action: none` (alca), nunca depender de `preventDefault()` tardio
+- **`cloneNode` copia atributo, nao propriedade**: clonar uma linha com `<input>` produz campo VAZIO, porque o texto vive em `input.value`
+- **`position: fixed` dentro de ancestral com `transform`** resolve contra o ancestral, nao a viewport — overlay de arrasto tem que ser filho do `body`
+- **`elementFromPoint` nao retorna elemento clipado** por `overflow: hidden` — no carrossel os outros dias sao inalcancaveis por hit-test, so por um alvo trazido ate o dedo
+- **Indice de slide != offset do dia**: `getWeekDays` filtra dias fora do ano; na semana que cruza 1º de janeiro os dois divergem e `swipeTo` cai no vazio
+- **Toque emite click sintetico ~300ms apos o drop** — precisa ser engolido, senao foca o campo sob o ponto de soltura e sobe o teclado
+- Cor de overlay tirada de `var(--title)` vira branco-no-branco nos temas escuros; overlay flutuante pede cor fixa
 
 ---
 

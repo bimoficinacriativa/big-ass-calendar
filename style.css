@@ -1609,6 +1609,173 @@ body.wv-dragging .wv-period {
 }
 
 /* ============================================
+   TOUCH DRAG — handle, ghost, day rail
+   ============================================ */
+
+/* The ONLY element with touch-action none. Putting it on the row or the list
+   would kill vertical scrolling, which is decided at gesture start. */
+.wv-entry-grip {
+  flex-shrink: 0;
+  width: 14px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text);
+  opacity: 0.25;
+  cursor: grab;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wv-entry:hover .wv-entry-grip { opacity: 0.7; }
+.wv-entry-grip:active { cursor: grabbing; }
+
+/* Fingers need a real target; iPads report coarse pointers too */
+@media (pointer: coarse) {
+  .wv-entry-grip { width: 28px; font-size: 16px; opacity: 0.5; }
+  /* only the stacked layouts — the 7-column grid sizes periods by flex and a
+     min-height there would blow out the iPad week view */
+  .wv-swipe-body .wv-period,
+  .wv-stacked-body .wv-period { min-height: 68px; }
+}
+
+.wv-entry.tdragging { opacity: 0.35; }
+
+/* Ghost lives on <body>: inside the transformed .wv-swipe-track a fixed
+   element would resolve against the track and fly off screen */
+.wv-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 300;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--cell-bg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  /* the scale lives in the inline transform set per frame, which would
+     otherwise override anything declared here */
+  will-change: transform;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.wv-drag-ghost-time { font-weight: 700; opacity: 0.6; font-variant-numeric: tabular-nums; }
+.wv-drag-ghost-text { overflow: hidden; text-overflow: ellipsis; }
+
+.wv-drag-ghost[data-cat="adventure"] { border-left: 4px solid #0094D6; }
+.wv-drag-ghost[data-cat="marriage"]  { border-left: 4px solid #EC407A; }
+.wv-drag-ghost[data-cat="health"]    { border-left: 4px solid #7CB342; }
+.wv-drag-ghost[data-cat="kids"]      { border-left: 4px solid #9791F1; }
+.wv-drag-ghost[data-cat="business"]  { border-left: 4px solid #FF612E; }
+.wv-drag-ghost[data-cat="personal"]  { border-left: 4px solid #FDD835; }
+.wv-drag-ghost[data-cat="family"]    { border-left: 4px solid #E53935; }
+.wv-drag-ghost[data-cat="finance"]   { border-left: 4px solid #00BCD4; }
+
+/* Says where the entry will land — the finger covers the target */
+.wv-drag-readout {
+  position: fixed;
+  /* clears the status bar / Dynamic Island in a standalone PWA */
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 301;
+  pointer-events: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  /* fixed colours on purpose: --title is near-white in the dark themes and
+     would put white text on a white pill */
+  background: #1F2933;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transition: opacity 0.12s;
+  white-space: nowrap;
+}
+
+.wv-drag-readout.show { opacity: 1; }
+
+/* Day chips: in the carousel the other six days are clipped away, so they are
+   the only way to reach them without lifting the finger */
+.wv-day-rail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 301;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  background: var(--toolbar-bg);
+  border-top: 2px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.wv-rail-chip {
+  flex: 0 0 auto;
+  min-width: 40px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--cell-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-family: inherit;
+  color: var(--text);
+  transition: transform 0.12s, background 0.12s;
+}
+
+.wv-rail-dow { font-size: 10px; font-weight: 700; opacity: 0.6; }
+.wv-rail-num { font-size: 16px; font-weight: 900; color: var(--title); }
+
+.wv-rail-chip.current { border-color: var(--today-border); }
+
+.wv-rail-chip.hot {
+  transform: scale(1.15);
+  background: #0094D6; /* fixed: --title is near-white in the dark themes */
+  border-color: #0094D6;
+}
+.wv-rail-chip.hot .wv-rail-dow,
+.wv-rail-chip.hot .wv-rail-num { color: #fff; opacity: 1; }
+
+.wv-rail-chip.wv-drop-full {
+  background: #E53935;
+  border-color: #E53935;
+}
+.wv-rail-chip.wv-drop-full .wv-rail-dow,
+.wv-rail-chip.wv-drop-full .wv-rail-num { color: #fff; opacity: 1; }
+
+.wv-rail-chip.disabled { opacity: 0.3; }
+
+/* Hit-testing must read settled geometry, not a track mid-animation */
+body.wv-tdrag .wv-swipe-track { transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wv-rail-chip { transition: none; }
+  .wv-drag-readout { transition: none; }
+}
+
+/* ============================================
    WEEK PERIODS — mobile slide + vertical monitor
    ============================================ */
 
@@ -1645,6 +1812,9 @@ body.wv-dragging .wv-period {
 
 .wv-stacked-body .wv-entry .day-cat-dot,
 .wv-swipe-body .wv-entry .day-cat-dot { width: 16px; height: 16px; }
+
+.wv-stacked-body .wv-entry-grip,
+.wv-swipe-body .wv-entry-grip { width: 28px; font-size: 17px; opacity: 0.5; }
 
 .wv-stacked-body .wv-period-name,
 .wv-swipe-body .wv-period-name { font-size: 13px; }

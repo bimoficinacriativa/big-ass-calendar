@@ -110,6 +110,8 @@
       wvAddHint: 'Comece com a hora pra agendar: "14h Gravar aula" ou "9h30 Revisão"',
       wvChangeTime: 'Mudar dia e horário',
       wvChangeDay: 'Mover para outro dia',
+      wvDragHint: 'Arraste para mover de dia ou período',
+      wvPeriodFull: 'período cheio',
     },
     'en': {
       months: ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],
@@ -200,6 +202,8 @@
       wvAddHint: 'Start with a time (24h) to schedule: "14:30 Record lesson"',
       wvChangeTime: 'Change day and time',
       wvChangeDay: 'Move to another day',
+      wvDragHint: 'Drag to move across days or periods',
+      wvPeriodFull: 'period full',
     }
   };
 
@@ -1751,6 +1755,9 @@
 
     // The picker anchors to a row this rebuild is about to destroy
     closeDayCategoryPicker();
+    // Same for a touch drag in flight — cancel it rather than defer the
+    // rebuild, which would also defer the pending quick-add draft commit below
+    if (wvDrag) wvTeardownTouchDrag();
 
     // A rebuild would silently drop a draft being typed in a quick-add
     // (e.g. remote sync mid-typing) — commit it first
@@ -1981,15 +1988,31 @@
     return !e || (!e.text && !e.category);
   }
 
-  // Free slot inside the period, searching from the anchor hour outward
-  // (anchor..end first, then start..anchor) so defaults land at human hours
-  function findFreePeriodSlot(dateStr, period) {
-    var dayData = getTimeboxingDay(dateStr);
+  // Period slots from the anchor hour outward (anchor..end, then start..anchor)
+  // so defaults land at human hours
+  function orderedPeriodSlots(period) {
     var keys = periodSlotKeys(period);
     var startIdx = keys.indexOf(period.anchor + '_00');
     if (startIdx < 0) startIdx = 0;
-    var ordered = keys.slice(startIdx).concat(keys.slice(0, startIdx));
-    return ordered.find(function(k) { return isFreeSlot(dayData, k); });
+    return keys.slice(startIdx).concat(keys.slice(0, startIdx));
+  }
+
+  function findFreePeriodSlot(dateStr, period) {
+    var dayData = getTimeboxingDay(dateStr);
+    return orderedPeriodSlots(period).find(function(k) { return isFreeSlot(dayData, k); });
+  }
+
+  // Where an entry would land — read-only, so a drag can preview "period full"
+  // without creating empty day shells while the finger hovers
+  function resolveDropSlot(fromDate, fromKey, toDate, period) {
+    var day = state.timeboxing && state.timeboxing[toDate];
+    var sched = (day && day.schedule) || {};
+    var free = function(k) {
+      var e = sched[k];
+      return !e || (!e.text && !e.category);
+    };
+    if (keyInPeriod(fromKey, period) && (fromDate === toDate || free(fromKey))) return fromKey;
+    return orderedPeriodSlots(period).find(free) || null;
   }
 
   function allDaySlotKeys() {
@@ -2110,6 +2133,290 @@
     });
   }
 
+  // ============================================================
+  // TOUCH DRAG — browsers fire no native HTML5 drag on touch, so entries are
+  // dragged by a handle with Pointer Events. Mouse keeps the native path.
+  // ============================================================
+  var WV_TDRAG = {
+    SLOP: 4,          // px before a press becomes a drag
+    RAIL_DWELL: 220,  // ms hovering a day chip before the carousel navigates
+    EDGE: 48,         // px from a scroller edge that triggers auto-scroll
+    SCROLL_PPS: 520,  // px per second of auto-scroll (frame-rate independent)
+    CLICK_EAT: 400,   // ms window to swallow the synthetic click after a drop
+    SLIDE_MS: 320     // carousel animation, matches the CSS transition
+  };
+
+  var wvDrag = null;          // active drag state
+  var wvSwipeGuardUntil = 0;  // blocks the day-swipe right after a drag
+
+  function wvTouchDragStart(e, row, dateStr, key, period) {
+    if (e.pointerType === 'mouse') return; // native drag and drop handles it
+    if (wvDrag) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    wvDrag = {
+      id: e.pointerId, row: row, dateStr: dateStr, key: key, period: period,
+      x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY,
+      started: false, ghost: null, readout: null, rail: null,
+      target: null, chip: null, chipSince: 0, slideUntil: 0,
+      lastFrame: 0, raf: 0
+    };
+
+    document.addEventListener('pointermove', wvTouchDragMove, { passive: false });
+    document.addEventListener('pointerup', wvTouchDragEnd);
+    document.addEventListener('pointercancel', wvTouchDragCancel);
+  }
+
+  function wvTouchDragMove(e) {
+    if (!wvDrag || e.pointerId !== wvDrag.id) return;
+    wvDrag.x = e.clientX;
+    wvDrag.y = e.clientY;
+
+    if (!wvDrag.started) {
+      var dx = e.clientX - wvDrag.x0, dy = e.clientY - wvDrag.y0;
+      if (Math.sqrt(dx * dx + dy * dy) < WV_TDRAG.SLOP) return;
+      wvBeginTouchDrag();
+    }
+    e.preventDefault(); // hold the scroll while dragging
+  }
+
+  function wvBeginTouchDrag() {
+    var d = wvDrag;
+    d.started = true;
+    closeDayCategoryPicker();
+    // An open keyboard would cover the day rail at the bottom of the screen
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    document.body.classList.add('wv-dragging', 'wv-tdrag');
+    d.row.classList.add('tdragging');
+    d.row.draggable = false;
+
+    // Ghost built by hand: cloneNode would copy the input's attribute, not its
+    // live value, so the dragged card would come out blank
+    var ghost = document.createElement('div');
+    ghost.className = 'wv-drag-ghost';
+    var cat = d.row.getAttribute('data-cat');
+    if (cat) ghost.setAttribute('data-cat', cat);
+    var timeEl = d.row.querySelector('.wv-entry-time');
+    var inputEl = d.row.querySelector('.day-cell-input');
+    ghost.innerHTML = '<span class="wv-drag-ghost-time"></span><span class="wv-drag-ghost-text"></span>';
+    ghost.querySelector('.wv-drag-ghost-time').textContent = timeEl ? timeEl.textContent : '';
+    ghost.querySelector('.wv-drag-ghost-text').textContent = inputEl ? inputEl.value : '';
+    ghost.style.width = Math.min(d.row.offsetWidth, 260) + 'px';
+    document.body.appendChild(ghost); // body, never inside the transformed track
+    d.ghost = ghost;
+
+    var readout = document.createElement('div');
+    readout.className = 'wv-drag-readout';
+    document.body.appendChild(readout);
+    d.readout = readout;
+
+    d.rail = wvBuildDayRail();
+    if (navigator.vibrate) navigator.vibrate(10);
+    d.raf = requestAnimationFrame(wvTouchDragTick);
+  }
+
+  // Day chips, shown only while dragging in the phone carousel — the other six
+  // days are clipped by overflow:hidden and elementFromPoint never returns them
+  function wvBuildDayRail() {
+    if (!document.querySelector('.wv-swipe-track')) return null;
+    var start = zoomWeekStart || getWeekStartForDate(new Date());
+    var lang = state.settings.lang;
+    // Slides come from getWeekDays, which drops days outside the year, so a
+    // chip's slide index is its position THERE — not its offset from Sunday.
+    // They diverge on the week that crosses January 1st.
+    var slides = getWeekDays(start);
+    var rail = document.createElement('div');
+    rail.className = 'wv-day-rail';
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(start);
+      d.setDate(d.getDate() + i);
+      var slideIdx = slides.findIndex(function(dd) {
+        return dd.month === d.getMonth() && dd.day === d.getDate();
+      });
+      var chip = document.createElement('div');
+      chip.className = 'wv-rail-chip';
+      chip.dataset.idx = slideIdx;
+      chip.dataset.date = formatDateISO(d);
+      if (slideIdx < 0) chip.classList.add('disabled'); // no slide for it
+      if (slideIdx >= 0 && slideIdx === swipeCurrentDay) chip.classList.add('current');
+      chip.innerHTML = '<span class="wv-rail-dow"></span><span class="wv-rail-num"></span>';
+      chip.querySelector('.wv-rail-dow').textContent = I18N[lang].days[d.getDay()].charAt(0);
+      chip.querySelector('.wv-rail-num').textContent = d.getDate();
+      rail.appendChild(chip);
+    }
+    document.body.appendChild(rail);
+    return rail;
+  }
+
+  function wvTouchDragTick(now) {
+    var d = wvDrag;
+    if (!d || !d.started) return;
+
+    var dt = d.lastFrame ? Math.min(now - d.lastFrame, 50) : 16;
+    d.lastFrame = now;
+
+    d.ghost.style.transform =
+      'translate3d(' + (d.x - 40) + 'px,' + (d.y - 34) + 'px,0) scale(1.03)';
+
+    var under = document.elementFromPoint(d.x, d.y);
+    var chip = under && under.closest ? under.closest('.wv-rail-chip') : null;
+    var period = under && under.closest ? under.closest('.wv-period') : null;
+
+    // Auto-scroll the list actually under the finger. Freezing the scroller at
+    // pointerdown would keep scrolling the source day after the rail navigates
+    // away from it, and would scroll it from over the rail too.
+    var scroller = under && under.closest
+      ? under.closest('.wv-swipe-body, .wv-col-body, .wv-stacked-body') : null;
+    if (scroller) {
+      var sr = scroller.getBoundingClientRect();
+      var step = WV_TDRAG.SCROLL_PPS * (dt / 1000); // px/s, not px/frame
+      if (d.y < sr.top + WV_TDRAG.EDGE) scroller.scrollTop -= step;
+      else if (d.y > sr.bottom - WV_TDRAG.EDGE) scroller.scrollTop += step;
+    }
+
+    // Hovering a day chip navigates the carousel without lifting the finger
+    if (chip && !chip.classList.contains('disabled')) {
+      if (d.chip !== chip) {
+        if (d.chip) d.chip.classList.remove('hot');
+        d.chip = chip;
+        chip.classList.add('hot');
+        d.chipSince = Date.now();
+      } else if (Date.now() - d.chipSince > WV_TDRAG.RAIL_DWELL &&
+                 Date.now() > d.slideUntil &&
+                 parseInt(chip.dataset.idx, 10) !== swipeCurrentDay) {
+        swipeTo(parseInt(chip.dataset.idx, 10));
+        d.slideUntil = Date.now() + WV_TDRAG.SLIDE_MS;
+        d.rail.querySelectorAll('.wv-rail-chip').forEach(function(c) {
+          c.classList.toggle('current', c === chip);
+        });
+      }
+    } else if (d.chip) {
+      d.chip.classList.remove('hot');
+      d.chip = null;
+    }
+
+    wvSetDropTarget(period);
+    d.raf = requestAnimationFrame(wvTouchDragTick);
+  }
+
+  function wvSetDropTarget(period) {
+    var d = wvDrag;
+    if (d.target === period) return;
+    if (d.target) d.target.classList.remove('wv-drop-target', 'wv-drop-full');
+    d.target = period;
+    if (!period) { d.readout.classList.remove('show'); return; }
+
+    var info = wvPeriodInfo(period);
+    var slot = info && resolveDropSlot(d.dateStr, d.key, info.date, info.period);
+    period.classList.add(slot ? 'wv-drop-target' : 'wv-drop-full');
+
+    if (info) {
+      // The finger covers the target on a small screen — say it in words
+      d.readout.textContent = info.label + ' · ' + t(info.period.i18n) +
+        (slot ? ' ' + slot.split('_')[0].padStart(2, '0') + ':' + slot.split('_')[1] : ' — ' + t('wvPeriodFull'));
+      d.readout.classList.add('show');
+    }
+  }
+
+  // Which day and period a .wv-period belongs to, in any of the three layouts
+  function wvPeriodInfo(periodEl) {
+    var host = periodEl.closest('.wv-column, .wv-swipe-slide, .wv-stacked-row');
+    if (!host) return null;
+    var add = periodEl.querySelector('.wv-period-add');
+    if (!add || !add.dataset.date) return null;
+    var period = WV_PERIODS.find(function(p) { return p.key === add.dataset.period; });
+    if (!period) return null;
+    var d = parseDateISO(add.dataset.date);
+    return {
+      date: add.dataset.date,
+      period: period,
+      label: I18N[state.settings.lang].days[d.getDay()] + ' ' + d.getDate()
+    };
+  }
+
+  function wvTouchDragEnd(e) {
+    if (!wvDrag || e.pointerId !== wvDrag.id) return;
+    var d = wvDrag;
+    if (!d.started) { wvTeardownTouchDrag(); return; }
+
+    var toDate = null, period = null;
+    if (d.target) {
+      var info = wvPeriodInfo(d.target);
+      if (info) { toDate = info.date; period = info.period; }
+    } else if (d.chip && !d.chip.classList.contains('disabled')) {
+      // Dropped straight on a day chip: same period, other day
+      toDate = d.chip.dataset.date;
+      period = d.period;
+    }
+
+    var result = null;
+    if (toDate && period) {
+      result = moveEntryToDayPeriod(d.dateStr, d.key, toDate, period);
+    }
+    if (result === 'full') {
+      // Show the rejection on whatever received the drop — including a rail
+      // chip, which only exists until the overlay is torn down
+      var rejectEl = d.target || d.chip;
+      if (rejectEl) rejectEl.classList.add('wv-drop-full');
+      wvTeardownTouchDrag(700);
+      return;
+    }
+
+    wvTeardownTouchDrag();
+    if (result === 'moved') renderWeekView(zoomWeekStart);
+  }
+
+  function wvTouchDragCancel(e) {
+    if (!wvDrag || (e && e.pointerId !== wvDrag.id)) return;
+    wvTeardownTouchDrag();
+  }
+
+  // holdMs keeps the overlay on screen a moment longer so a rejection flash is
+  // visible; the gesture itself always ends immediately
+  function wvTeardownTouchDrag(holdMs) {
+    var d = wvDrag;
+    if (!d) return;
+    wvDrag = null;
+
+    document.removeEventListener('pointermove', wvTouchDragMove, { passive: false });
+    document.removeEventListener('pointerup', wvTouchDragEnd);
+    document.removeEventListener('pointercancel', wvTouchDragCancel);
+
+    if (d.raf) cancelAnimationFrame(d.raf);
+    if (d.ghost) d.ghost.remove();
+    if (d.row) { d.row.classList.remove('tdragging'); d.row.draggable = true; }
+
+    var clear = function() {
+      if (d.readout) d.readout.remove();
+      if (d.rail) d.rail.remove();
+      if (d.target) d.target.classList.remove('wv-drop-target', 'wv-drop-full');
+      document.body.classList.remove('wv-dragging', 'wv-tdrag');
+    };
+    if (holdMs) setTimeout(clear, holdMs); else clear();
+
+    if (d.started) {
+      wvSwipeGuardUntil = Date.now() + WV_TDRAG.CLICK_EAT;
+      wvEatNextClick();
+    }
+  }
+
+  // Touch drops emit a synthetic click ~300ms later at the release point, which
+  // would land on the rebuilt DOM and focus a quick-add, raising the keyboard
+  function wvEatNextClick() {
+    var eat = function(ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      cleanup();
+    };
+    var cleanup = function() {
+      document.removeEventListener('click', eat, true);
+      clearTimeout(timer);
+    };
+    var timer = setTimeout(cleanup, WV_TDRAG.CLICK_EAT);
+    document.addEventListener('click', eat, true);
+  }
+
   // Move an entry to another day and/or period (drag and drop). Keeps the
   // original time when it still fits the target period and is free there,
   // otherwise falls back to the period's anchor search.
@@ -2119,15 +2426,11 @@
     var entry = fromDay.schedule[fromKey];
     if (!entry) return 'gone';
 
-    var toDay = getTimeboxingDay(toDate);
-    var keepsTime = keyInPeriod(fromKey, period) &&
-      (fromDate === toDate || isFreeSlot(toDay, fromKey));
-    var target = keepsTime ? fromKey : findFreePeriodSlot(toDate, period);
-
+    var target = resolveDropSlot(fromDate, fromKey, toDate, period);
     if (!target) return 'full';
     if (fromDate === toDate && target === fromKey) return 'unchanged';
 
-    toDay.schedule[target] = entry;
+    getTimeboxingDay(toDate).schedule[target] = entry;
     delete fromDay.schedule[fromKey];
     pruneTimeboxingDay(fromDate);
     saveState();
@@ -2197,6 +2500,18 @@
       document.querySelectorAll('.wv-period.wv-drop-target')
         .forEach(function(el) { el.classList.remove('wv-drop-target'); });
     });
+
+    // Dedicated drag handle: the only surface with touch-action none, so the
+    // rest of the row keeps scrolling and editing exactly as before
+    var grip = document.createElement('div');
+    grip.className = 'wv-entry-grip';
+    grip.textContent = '≡';
+    grip.title = t('wvDragHint');
+    grip.setAttribute('aria-hidden', 'true');
+    grip.addEventListener('pointerdown', function(e) {
+      wvTouchDragStart(e, row, dateStr, key, period);
+    });
+    row.appendChild(grip);
 
     var toggle = document.createElement('div');
     toggle.className = 'day-done-toggle';
@@ -3461,6 +3776,11 @@
       container.dataset.swipeBound = '1';
       let startX = 0, startY = 0, isDragging = false;
       container.addEventListener('touchstart', (e) => {
+        // A gesture born on a drag handle is an entry drag, never a day swipe
+        if (e.target.closest && e.target.closest('.wv-entry-grip')) {
+          isDragging = false;
+          return;
+        }
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         isDragging = true;
@@ -3469,6 +3789,7 @@
       container.addEventListener('touchend', (e) => {
         if (!isDragging) return;
         isDragging = false;
+        if (wvDrag || Date.now() < wvSwipeGuardUntil) return; // a drag just ran
         if (!container.querySelector('.wv-swipe-track')) return; // not the swipe layout
         const dx = e.changedTouches[0].clientX - startX;
         const dy = e.changedTouches[0].clientY - startY;
